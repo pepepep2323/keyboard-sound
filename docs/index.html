@@ -49,7 +49,7 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
     animation: slide 6s linear infinite;
   }
-  .hero p { color: var(--muted); font-size: clamp(16px, 2.6vw, 19px); max-width: 620px; margin: 0 auto 28px; }
+  .hero p { color: var(--muted); font-size: clamp(16px, 2.6vw, 19px); max-width: 700px; margin: 0 auto 28px; }
   @keyframes slide { to { background-position: -200% 0; } }
 
   .download {
@@ -65,9 +65,46 @@
   .download:hover::after { background: #23232f; }
   .download svg { width: 22px; height: 22px; }
   .meta { color: var(--muted); font-size: 14px; margin-top: 12px; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
+  .ghost {
+    display: inline-flex; align-items: center; gap: 10px; padding: 15px 22px; border-radius: 14px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    font: inherit; font-size: 17px; font-weight: 600; cursor: pointer;
+  }
+  .ghost:hover { background: #1c1c27; }
+  .ghost svg { width: 20px; height: 20px; }
+  .ghost.playing { border-color: var(--accent); }
+
+  /* "how it looks" */
+  .shot {
+    position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--line);
+    background:
+      radial-gradient(60% 50% at 75% 30%, #ffb46b 0%, transparent 60%),
+      radial-gradient(50% 40% at 20% 20%, #6bb8ff 0%, transparent 70%),
+      linear-gradient(180deg, #3a6ea8 0%, #c98a5b 55%, #6b4a33 56%, #3b2a20 100%);
+  }
+  .shot::before {      /* faint "game HUD" so it reads as a screen */
+    content: ""; position: absolute; right: 3%; top: 5%; width: 14%; aspect-ratio: 1;
+    border-radius: 10px; background: rgba(0, 0, 0, .28); border: 2px solid rgba(255, 255, 255, .35);
+  }
+  .shot::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px;
+    border: 2px solid rgba(255, 255, 255, .8); border-radius: 50%;
+  }
+  .shot img { position: absolute; left: 2.5%; bottom: 4%; width: 58%; height: auto; opacity: .92; }
+  .caption { color: var(--muted); font-size: 15px; margin-top: 12px; text-align: center; }
+  .full { margin-top: 16px; border-radius: 14px; background: #0f0f15; border: 1px solid var(--line); padding: 14px; }
+  .full img { display: block; width: 100%; height: auto; }
+
+  .demo-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .demo-bar .demo-hint { margin: 0; text-align: left; }
+  .toggle {
+    background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 999px;
+    padding: 6px 14px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
 
   /* live keyboard */
-  .demo { margin: 44px auto 8px; max-width: 760px; }
   .demo-hint { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
   .kb { display: grid; gap: 5px; padding: 12px; border-radius: 14px; background: #0f0f15; border: 1px solid var(--line); }
   .row { display: grid; gap: 5px; }
@@ -138,23 +175,49 @@
       <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. I ve hrách. Zdarma pro Windows 10 a 11.</span>
       <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. Works in games too. Free for Windows 10 and 11.</span>
     </p>
-    <a class="download" href="https://github.com/pepepep2323/keyboard-sound/releases/latest/download/KeyboardSound.zip">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 19h16"/></svg>
-      <span class="cs">Stáhnout zdarma</span><span class="en">Download for free</span>
-    </a>
+    <div class="actions">
+      <a class="download" href="https://github.com/pepepep2323/keyboard-sound/releases/latest/download/KeyboardSound.zip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 19h16"/></svg>
+        <span class="cs">Stáhnout zdarma</span><span class="en">Download for free</span>
+      </a>
+      <button class="ghost" id="listen" type="button">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        <span class="cs">Poslechnout zvuk</span><span class="en">Hear the sound</span>
+      </button>
+    </div>
     <div class="meta">
       <span class="cs">KeyboardSound.zip · cca 9 MB · Windows · bez instalace</span>
       <span class="en">KeyboardSound.zip · about 9 MB · Windows · no installation</span>
     </div>
   </div>
 
-  <div class="demo">
-    <div class="demo-hint">
-      <span class="cs">Zkus něco napsat, klávesy tady svítí stejně jako v aplikaci ↓</span>
-      <span class="en">Try typing: the keys light up just like in the app ↓</span>
+  <section>
+    <h2><span class="cs">Jak to vypadá</span><span class="en">What it looks like</span></h2>
+    <div class="shot">
+      <img src="preview.png" alt="RGB keyboard and mouse overlay in the corner of the screen" width="1096" height="278">
+    </div>
+    <p class="caption">
+      <span class="cs">Overlay sedí v rohu obrazovky přes hru. Zmáčknuté klávesy a tlačítka myši se rozsvítí, myš kliká skrz.</span>
+      <span class="en">The overlay sits in a corner of your screen, on top of your game. Pressed keys and mouse buttons glow, and clicks go straight through.</span>
+    </p>
+    <div class="full"><img src="preview.png" alt="Close-up of the overlay: W, A, Shift and the left mouse button are lit" width="1096" height="278" loading="lazy"></div>
+    <p class="caption">
+      <span class="cs">Zblízka: drží se W + A, Shift a levé tlačítko myši. Popisky kláves se přizpůsobí tvé klávesnici (třeba ě š č ř ž).</span>
+      <span class="en">Close-up: W + A, Shift and the left mouse button are held. Key labels follow your keyboard layout.</span>
+    </p>
+  </section>
+
+  <section class="demo">
+    <h2><span class="cs">Vyzkoušej si to</span><span class="en">Try it</span></h2>
+    <div class="demo-bar">
+      <div class="demo-hint">
+        <span class="cs">Začni psát: klávesy svítí a cvakají stejně jako v aplikaci.</span>
+        <span class="en">Start typing: keys glow and click just like in the app.</span>
+      </div>
+      <button class="toggle" id="soundToggle" type="button" aria-pressed="true"></button>
     </div>
     <div class="kb" id="kb"></div>
-  </div>
+  </section>
 
   <section>
     <h2><span class="cs">Co umí</span><span class="en">Features</span></h2>
@@ -274,7 +337,67 @@
       if (!hold) el._t = setTimeout(() => el.classList.remove("on"), 120);
     });
   }
-  addEventListener("keydown", e => { if (byCode[e.code]) flash(byCode[e.code], true); });
+  // ---- sound (same click as the app, with the same small random pitch change)
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const audio = AC ? new AC() : null;
+  let clickBuffer = null;
+  if (audio) {
+    fetch("click.wav").then(r => r.arrayBuffer()).then(b => audio.decodeAudioData(b))
+      .then(buf => { clickBuffer = buf; }).catch(() => {});
+  }
+  function playClick() {
+    if (!audio || !clickBuffer) return;
+    if (audio.state === "suspended") audio.resume();
+    const src = audio.createBufferSource();
+    src.buffer = clickBuffer;
+    src.playbackRate.value = 1 + (Math.random() * 2 - 1) * 0.04;
+    const gain = audio.createGain();
+    gain.gain.value = 0.85 + Math.random() * 0.15;
+    src.connect(gain).connect(audio.destination);
+    src.start();
+  }
+
+  let soundOn = true;
+  try { soundOn = localStorage.getItem("sound") !== "off"; } catch (e) {}
+  const toggle = document.getElementById("soundToggle");
+  function drawToggle() {
+    toggle.setAttribute("aria-pressed", soundOn);
+    toggle.innerHTML = soundOn
+      ? '🔊 <span class="cs">Zvuk zapnutý</span><span class="en">Sound on</span>'
+      : '🔇 <span class="cs">Zvuk vypnutý</span><span class="en">Sound off</span>';
+  }
+  drawToggle();
+  toggle.addEventListener("click", () => {
+    soundOn = !soundOn;
+    try { localStorage.setItem("sound", soundOn ? "on" : "off"); } catch (e) {}
+    drawToggle();
+    if (soundOn) playClick();
+  });
+
+  // "Hear the sound": a short burst like someone typing, keys light up along with it
+  const listen = document.getElementById("listen");
+  const burst = ["KeyA", "KeyH", "KeyO", "KeyJ", "Space", "KeyS", "KeyV", "KeyE", "KeyT", "KeyE"];
+  let bursting = false;
+  listen.addEventListener("click", () => {
+    if (bursting) return;
+    bursting = true;
+    listen.classList.add("playing");
+    let t = 0;
+    burst.forEach((code, n) => {
+      t += n === 0 ? 0 : 70 + Math.random() * 110;
+      setTimeout(() => {
+        playClick();
+        if (byCode[code]) flash(byCode[code], false);
+        if (n === burst.length - 1) setTimeout(() => { bursting = false; listen.classList.remove("playing"); }, 300);
+      }, t);
+    });
+  });
+
+  addEventListener("keydown", e => {
+    if (e.repeat) return;
+    if (soundOn && !e.ctrlKey && !e.metaKey) playClick();
+    if (byCode[e.code]) flash(byCode[e.code], true);
+  });
   addEventListener("keyup", e => { if (byCode[e.code]) byCode[e.code].forEach(el => el.classList.remove("on")); });
   addEventListener("blur", () => keys.forEach(el => el.classList.remove("on")));
 
