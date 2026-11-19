@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyboard Sound – cvakání a RGB klávesnice na obrazovce</title>
+<meta name="description" content="Zvuk cvaknutí při každém stisku klávesy a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. Zdarma pro Windows.">
+<meta property="og:title" content="Keyboard Sound">
+<meta property="og:description" content="Click sound on every key press + RGB keyboard & mouse overlay for Windows. Free.">
+<meta property="og:image" content="icon.png">
+<link rel="icon" href="favicon.ico">
+<style>
+  :root {
+    --bg: #0b0b10;
+    --panel: #14141c;
+    --line: #262633;
+    --text: #ececf3;
+    --muted: #9a9aad;
+    --accent: #7c9cff;
+    --rgb: linear-gradient(90deg, #ff4d4d, #ffb84d, #e8ff4d, #4dff88, #4dfff0, #4d8bff, #b04dff, #ff4dc4, #ff4d4d);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+
+  /* top bar */
+  header { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); text-decoration: none; }
+  .brand img { width: 32px; height: 32px; }
+  .lang { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+  .lang button {
+    background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600;
+    padding: 4px 12px; border-radius: 999px; cursor: pointer;
+  }
+  .lang button[aria-pressed="true"] { background: var(--line); color: var(--text); }
+
+  /* hero */
+  .hero { text-align: center; padding: 40px 0 24px; }
+  .hero h1 { font-size: clamp(34px, 7vw, 60px); line-height: 1.1; margin: 0 0 14px; letter-spacing: -0.02em; }
+  .hero h1 span {
+    background: var(--rgb); background-size: 200% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: slide 6s linear infinite;
+  }
+  .hero p { color: var(--muted); font-size: clamp(16px, 2.6vw, 19px); max-width: 620px; margin: 0 auto 28px; }
+  @keyframes slide { to { background-position: -200% 0; } }
+
+  .download {
+    position: relative; display: inline-flex; align-items: center; gap: 12px;
+    padding: 16px 30px; border-radius: 14px; font-size: 19px; font-weight: 700;
+    color: #fff; text-decoration: none; background: #1b1b26; isolation: isolate;
+  }
+  .download::before {
+    content: ""; position: absolute; inset: -2px; border-radius: 16px; z-index: -1;
+    background: var(--rgb); background-size: 200% 100%; animation: slide 4s linear infinite;
+  }
+  .download::after { content: ""; position: absolute; inset: 0; border-radius: 14px; background: #1b1b26; z-index: -1; }
+  .download:hover::after { background: #23232f; }
+  .download svg { width: 22px; height: 22px; }
+  .meta { color: var(--muted); font-size: 14px; margin-top: 12px; }
+
+  /* live keyboard */
+  .demo { margin: 44px auto 8px; max-width: 760px; }
+  .demo-hint { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+  .kb { display: grid; gap: 5px; padding: 12px; border-radius: 14px; background: #0f0f15; border: 1px solid var(--line); }
+  .row { display: grid; gap: 5px; }
+  .key {
+    height: clamp(26px, 5.4vw, 42px); border-radius: 7px; background: #101016;
+    border: 1px solid hsl(var(--h) 90% 45% / .65); color: hsl(var(--h) 90% 72%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(9px, 1.7vw, 14px); font-weight: 600; user-select: none;
+    transition: background .5s, color .5s, border-color .5s, box-shadow .5s;
+  }
+  .key.on {
+    background: hsl(var(--h) 100% 62%); color: #111; border-color: #fff;
+    box-shadow: 0 0 18px hsl(var(--h) 100% 60% / .8); transition: none;
+  }
+
+  /* sections */
+  section { padding: 40px 0 8px; }
+  h2 { font-size: 26px; margin: 0 0 18px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card b { display: block; margin-bottom: 4px; font-size: 17px; }
+  .card span { color: var(--muted); font-size: 15px; }
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ol.steps li {
+    counter-increment: s; position: relative; padding: 14px 16px 14px 58px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  }
+  ol.steps li::before {
+    content: counter(s); position: absolute; left: 16px; top: 13px; width: 28px; height: 28px;
+    border-radius: 50%; background: var(--line); display: grid; place-items: center; font-weight: 700;
+  }
+  .warn { color: var(--muted); font-size: 15px; display: block; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  td { padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+  tr:first-child td { border-top: 0; }
+  td:first-child { white-space: nowrap; width: 1%; }
+  kbd {
+    font: 600 13px/1 "Cascadia Mono", Consolas, monospace; padding: 4px 7px; border-radius: 6px;
+    background: #20202b; border: 1px solid #34344a; color: var(--text);
+  }
+  footer { color: var(--muted); font-size: 14px; text-align: center; padding: 48px 0 40px; }
+
+  [data-lang="en"] .cs, [data-lang="cs"] .en { display: none; }
+  @media (max-width: 560px) {
+    td { display: block; width: auto !important; padding: 10px 14px; }
+    td:first-child { padding-bottom: 0; border-top: 1px solid var(--line); }
+    td + td { border-top: 0; }
+    tr:first-child td:first-child { border-top: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero h1 span, .download::before { animation: none; }
+  }
+</style>
+</head>
+<body data-lang="cs">
+<div class="wrap">
+  <header>
+    <a class="brand" href="./"><img src="icon.png" alt="">Keyboard Sound</a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set="cs" aria-pressed="true">CZ</button>
+      <button type="button" data-set="en" aria-pressed="false">EN</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <h1><span class="cs">Každá klávesa cvakne a&nbsp;rozsvítí se</span><span class="en">Every key clicks and lights up</span></h1>
+    <p>
+      <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. I ve hrách. Zdarma pro Windows 10 a 11.</span>
+      <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. Works in games too. Free for Windows 10 and 11.</span>
+    </p>
+    <a class="download" href="https://github.com/pepepep2323/keyboard-sound/releases/latest/download/KeyboardSound.zip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 19h16"/></svg>
+      <span class="cs">Stáhnout zdarma</span><span class="en">Download for free</span>
+    </a>
+    <div class="meta">
+      <span class="cs">KeyboardSound.zip · cca 9 MB · Windows · bez instalace</span>
+      <span class="en">KeyboardSound.zip · about 9 MB · Windows · no installation</span>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-hint">
+      <span class="cs">Zkus něco napsat, klávesy tady svítí stejně jako v aplikaci ↓</span>
+      <span class="en">Try typing: the keys light up just like in the app ↓</span>
+    </div>
+    <div class="kb" id="kb"></div>
+  </div>
+
+  <section>
+    <h2><span class="cs">Co umí</span><span class="en">Features</span></h2>
+    <div class="cards">
+      <div class="card"><b><span class="cs">🔊 Cvakání</span><span class="en">🔊 Click sound</span></b>
+        <span class="cs">Příjemné cvaknutí při každé klávese, i když píšeš hodně rychle.</span>
+        <span class="en">A satisfying click on every key press, even when you type fast.</span></div>
+      <div class="card"><b><span class="cs">🌈 RGB klávesnice</span><span class="en">🌈 RGB keyboard</span></b>
+        <span class="cs">Celá klávesnice na obrazovce, zmáčknuté klávesy se rozsvítí. Ukazuje i české znaky.</span>
+        <span class="en">A full on-screen keyboard; pressed keys glow. Matches your keyboard layout.</span></div>
+      <div class="card"><b><span class="cs">🖱️ Myš</span><span class="en">🖱️ Mouse</span></b>
+        <span class="cs">Levé, pravé a prostřední tlačítko, kolečko i boční tlačítka.</span>
+        <span class="en">Left, right and middle buttons, scroll wheel and side buttons.</span></div>
+      <div class="card"><b><span class="cs">🎮 Do her</span><span class="en">🎮 For games</span></b>
+        <span class="cs">Nezpomaluje hru, myš kliká skrz overlay. Umístění a velikost si nastavíš sám.</span>
+        <span class="en">Doesn't slow your game down; clicks go through. Move and resize it however you like.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="cs">Jak to spustit</span><span class="en">How to start</span></h2>
+    <ol class="steps">
+      <li><span class="cs">Stáhni <b>KeyboardSound.zip</b> a rozbal ho (pravý klik → Extrahovat vše).</span>
+          <span class="en">Download <b>KeyboardSound.zip</b> and unzip it (right-click → Extract All).</span></li>
+      <li><span class="cs">Dvakrát klikni na <b>KeyboardSound.exe</b>.</span>
+          <span class="en">Double-click <b>KeyboardSound.exe</b>.</span>
+          <span class="warn cs">Když Windows napíše „Systém Windows ochránil váš počítač“, klikni na <b>Další informace → Přesto spustit</b>. Aplikace jen není placeně podepsaná, proto ji Windows zatím nezná.</span>
+          <span class="warn en">If Windows says “Windows protected your PC”, click <b>More info → Run anyway</b>. The app just isn't code-signed, so Windows doesn't know it yet.</span></li>
+      <li><span class="cs">Hotovo. Vpravo dole u hodin se objeví ikona klávesnice, pravým klikem na ni najdeš nastavení.</span>
+          <span class="en">Done. A keyboard icon appears near the clock; right-click it for settings.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="cs">Ovládání</span><span class="en">Controls</span></h2>
+    <table>
+      <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F11</kbd></td>
+          <td><span class="cs">Přesunout nebo zvětšit overlay: táhni myší, kolečkem měníš velikost, pravý klik otevře další možnosti. Znovu stiskni pro uložení.</span>
+              <span class="en">Move or resize the overlay: drag it, scroll to resize, right-click for options. Press again to save.</span></td></tr>
+      <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F12</kbd></td>
+          <td><span class="cs">Ukončit aplikaci.</span><span class="en">Quit the app.</span></td></tr>
+      <tr><td><span class="cs">Ikona u hodin</span><span class="en">Tray icon</span></td>
+          <td><span class="cs">Zapnout/vypnout zvuk, skrýt overlay, spouštět s Windows, ukončit.</span>
+              <span class="en">Sound on/off, hide overlay, start with Windows, quit.</span></td></tr>
+    </table>
+    <p class="meta">
+      <span class="cs">Ve hrách je overlay vidět v režimu „okno bez okraje“, ne v exkluzivní celé obrazovce.</span>
+      <span class="en">In games the overlay shows in borderless / windowed fullscreen, not exclusive fullscreen.</span>
+    </p>
+  </section>
+
+  <footer>
+    <span class="cs">Zdarma a s otevřeným zdrojovým kódem ·</span><span class="en">Free and open source ·</span>
+    <a href="https://github.com/pepepep2323/keyboard-sound">GitHub</a> ·
+    <a href="https://github.com/pepepep2323/keyboard-sound/releases"><span class="cs">všechny verze</span><span class="en">all versions</span></a>
+  </footer>
+</div>
+
+<script>
+  // language switch (remembers the choice)
+  const body = document.body;
+  function setLang(lang) {
+    body.dataset.lang = lang;
+    document.documentElement.lang = lang;
+    document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", b.dataset.set === lang));
+    try { localStorage.setItem("lang", lang); } catch (e) {}
+  }
+  let saved = null;
+  try { saved = localStorage.getItem("lang"); } catch (e) {}
+  const nav = (navigator.language || "").toLowerCase();
+  setLang(saved || (nav.startsWith("cs") || nav.startsWith("sk") ? "cs" : "en"));
+  document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => setLang(b.dataset.set)));
+
+  // live RGB keyboard
+  const rows = [
+    [["Esc", "Escape", 1], ["1", "Digit1"], ["2", "Digit2"], ["3", "Digit3"], ["4", "Digit4"], ["5", "Digit5"], ["6", "Digit6"], ["7", "Digit7"], ["8", "Digit8"], ["9", "Digit9"], ["0", "Digit0"], ["⌫", "Backspace", 1.6]],
+    [["Tab", "Tab", 1.4], ["Q", "KeyQ"], ["W", "KeyW"], ["E", "KeyE"], ["R", "KeyR"], ["T", "KeyT"], ["Z", "KeyY"], ["U", "KeyU"], ["I", "KeyI"], ["O", "KeyO"], ["P", "KeyP"], ["Enter", "Enter", 1.2]],
+    [["Caps", "CapsLock", 1.7], ["A", "KeyA"], ["S", "KeyS"], ["D", "KeyD"], ["F", "KeyF"], ["G", "KeyG"], ["H", "KeyH"], ["J", "KeyJ"], ["K", "KeyK"], ["L", "KeyL"], ["Shift", "ShiftRight", 1.9]],
+    [["Shift", "ShiftLeft", 2.2], ["Y", "KeyZ"], ["X", "KeyX"], ["C", "KeyC"], ["V", "KeyV"], ["B", "KeyB"], ["N", "KeyN"], ["M", "KeyM"], [",", "Comma"], [".", "Period"], ["↑", "ArrowUp", 1.4]],
+    [["Ctrl", "ControlLeft", 1.4], ["Alt", "AltLeft", 1.2], ["", "Space", 6.4], ["←", "ArrowLeft", 1.1], ["↓", "ArrowDown", 1.1], ["→", "ArrowRight", 1.1]],
+  ];
+  const kb = document.getElementById("kb");
+  const byCode = {};
+  const keys = [];
+  rows.forEach(row => {
+    const r = document.createElement("div");
+    r.className = "row";
+    r.style.gridTemplateColumns = row.map(k => (k[2] || 1) + "fr").join(" ");
+    let x = 0;
+    const total = row.reduce((s, k) => s + (k[2] || 1), 0);
+    row.forEach(([label, code, w = 1]) => {
+      const el = document.createElement("div");
+      el.className = "key";
+      el.textContent = label;
+      el.dataset.pos = (x + w / 2) / total;
+      x += w;
+      r.appendChild(el);
+      keys.push(el);
+      (byCode[code] = byCode[code] || []).push(el);
+    });
+    kb.appendChild(r);
+  });
+
+  // moving rainbow (paused when the tab is hidden or motion is reduced)
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function paint(t) {
+    const shift = still ? 0 : t / 1000 * 54;
+    keys.forEach(k => k.style.setProperty("--h", (k.dataset.pos * 360 - shift + 3600) % 360));
+    if (!still) requestAnimationFrame(paint);
+  }
+  requestAnimationFrame(paint);
+
+  function flash(els, hold) {
+    els.forEach(el => {
+      el.classList.add("on");
+      clearTimeout(el._t);
+      if (!hold) el._t = setTimeout(() => el.classList.remove("on"), 120);
+    });
+  }
+  addEventListener("keydown", e => { if (byCode[e.code]) flash(byCode[e.code], true); });
+  addEventListener("keyup", e => { if (byCode[e.code]) byCode[e.code].forEach(el => el.classList.remove("on")); });
+  addEventListener("blur", () => keys.forEach(el => el.classList.remove("on")));
+
+  // little idle animation so the keyboard looks alive before you type
+  const demoWord = ["KeyK", "KeyL", "KeyI", "KeyK"];
+  let i = 0, typed = false;
+  addEventListener("keydown", () => { typed = true; }, { once: true });
+  const idle = setInterval(() => {
+    if (typed) return clearInterval(idle);
+    const els = byCode[demoWord[i++ % demoWord.length]];
+    if (els) flash(els, false);
+  }, 700);
+</script>
+</body>
+</html>
