@@ -7,12 +7,13 @@
 <meta name="description" content="Zvuk cvaknutí při každém stisku klávesy a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. Zdarma pro Windows.">
 <meta property="og:title" content="Keyboard Sound">
 <meta property="og:description" content="Click sound on every key press + RGB keyboard & mouse overlay for Windows. Free.">
-<meta property="og:image" content="icon.png">
+<meta property="og:image" content="preview.png">
 <link rel="icon" href="favicon.ico">
 <style>
   :root {
     --bg: #0b0b10;
     --panel: #14141c;
+    --panel-2: #1b1b26;
     --line: #262633;
     --text: #ececf3;
     --muted: #9a9aad;
@@ -20,160 +21,125 @@
     --rgb: linear-gradient(90deg, #ff4d4d, #ffb84d, #e8ff4d, #4dff88, #4dfff0, #4d8bff, #b04dff, #ff4dc4, #ff4d4d);
   }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 16px/1.6 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
-  }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
   a { color: var(--accent); }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  button { font: inherit; color: inherit; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
 
-  /* top bar */
-  header { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 0; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); text-decoration: none; }
   .brand img { width: 32px; height: 32px; }
+  nav { display: flex; align-items: center; gap: 18px; font-size: 15px; }
+  nav a { color: var(--muted); text-decoration: none; }
+  nav a:hover { color: var(--text); }
   .lang { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
-  .lang button {
-    background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600;
-    padding: 4px 12px; border-radius: 999px; cursor: pointer;
-  }
+  .lang button { background: none; border: 0; color: var(--muted); font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 999px; cursor: pointer; }
   .lang button[aria-pressed="true"] { background: var(--line); color: var(--text); }
+  @media (max-width: 640px) { nav a { display: none; } }
 
-  /* hero */
-  .hero { text-align: center; padding: 40px 0 24px; }
+  .hero { text-align: center; padding: 36px 0 20px; }
   .hero h1 { font-size: clamp(34px, 7vw, 60px); line-height: 1.1; margin: 0 0 14px; letter-spacing: -0.02em; }
-  .hero h1 span {
-    background: var(--rgb); background-size: 200% 100%;
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    animation: slide 6s linear infinite;
-  }
+  .hero h1 span { background: var(--rgb); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: slide 6s linear infinite; }
   .hero p { color: var(--muted); font-size: clamp(16px, 2.6vw, 19px); max-width: 700px; margin: 0 auto 28px; }
   @keyframes slide { to { background-position: -200% 0; } }
-
-  .download {
-    position: relative; display: inline-flex; align-items: center; gap: 12px;
-    padding: 16px 30px; border-radius: 14px; font-size: 19px; font-weight: 700;
-    color: #fff; text-decoration: none; background: #1b1b26; isolation: isolate;
-  }
-  .download::before {
-    content: ""; position: absolute; inset: -2px; border-radius: 16px; z-index: -1;
-    background: var(--rgb); background-size: 200% 100%; animation: slide 4s linear infinite;
-  }
-  .download::after { content: ""; position: absolute; inset: 0; border-radius: 14px; background: #1b1b26; z-index: -1; }
-  .download:hover::after { background: #23232f; }
-  .download svg { width: 22px; height: 22px; }
-  .meta { color: var(--muted); font-size: 14px; margin-top: 12px; }
   .actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
-  .ghost {
-    display: inline-flex; align-items: center; gap: 10px; padding: 15px 22px; border-radius: 14px;
-    background: var(--panel); border: 1px solid var(--line); color: var(--text);
-    font: inherit; font-size: 17px; font-weight: 600; cursor: pointer;
-  }
-  .ghost:hover { background: #1c1c27; }
-  .ghost svg { width: 20px; height: 20px; }
-  .ghost.playing { border-color: var(--accent); }
+  .download { position: relative; display: inline-flex; align-items: center; gap: 12px; padding: 16px 30px; border-radius: 14px; font-size: 19px; font-weight: 700; color: #fff; text-decoration: none; isolation: isolate; }
+  .download::before { content: ""; position: absolute; inset: -2px; border-radius: 16px; z-index: -2; background: var(--rgb); background-size: 200% 100%; animation: slide 4s linear infinite; }
+  .download::after { content: ""; position: absolute; inset: 0; border-radius: 14px; background: var(--panel-2); z-index: -1; }
+  .download:hover::after { background: #23232f; }
+  .download svg, .ghost svg { width: 21px; height: 21px; flex: none; }
+  .ghost { display: inline-flex; align-items: center; gap: 10px; padding: 15px 22px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); font-size: 17px; font-weight: 600; cursor: pointer; }
+  .ghost:hover { background: var(--panel-2); }
+  .meta { color: var(--muted); font-size: 14px; margin-top: 12px; }
 
-  /* "how it looks" */
-  .shot {
-    position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden;
-    border: 1px solid var(--line);
-    background:
-      radial-gradient(60% 50% at 75% 30%, #ffb46b 0%, transparent 60%),
-      radial-gradient(50% 40% at 20% 20%, #6bb8ff 0%, transparent 70%),
-      linear-gradient(180deg, #3a6ea8 0%, #c98a5b 55%, #6b4a33 56%, #3b2a20 100%);
-  }
-  .shot::before {      /* faint "game HUD" so it reads as a screen */
-    content: ""; position: absolute; right: 3%; top: 5%; width: 14%; aspect-ratio: 1;
-    border-radius: 10px; background: rgba(0, 0, 0, .28); border: 2px solid rgba(255, 255, 255, .35);
-  }
-  .shot::after {
-    content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px;
-    border: 2px solid rgba(255, 255, 255, .8); border-radius: 50%;
-  }
+  section { padding: 44px 0 4px; scroll-margin-top: 10px; }
+  h2 { font-size: 27px; margin: 0 0 6px; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+
+  /* screenshot over a "game" */
+  .shot { position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
+    background: radial-gradient(60% 50% at 75% 30%, #ffb46b 0%, transparent 60%), radial-gradient(50% 40% at 20% 20%, #6bb8ff 0%, transparent 70%), linear-gradient(180deg, #3a6ea8 0%, #c98a5b 55%, #6b4a33 56%, #3b2a20 100%); }
+  .shot::before { content: ""; position: absolute; right: 3%; top: 5%; width: 14%; aspect-ratio: 1; border-radius: 10px; background: rgba(0, 0, 0, .28); border: 2px solid rgba(255, 255, 255, .35); }
+  .shot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; border: 2px solid rgba(255, 255, 255, .8); border-radius: 50%; }
   .shot img { position: absolute; left: 2.5%; bottom: 4%; width: 58%; height: auto; opacity: .92; }
-  .caption { color: var(--muted); font-size: 15px; margin-top: 12px; text-align: center; }
-  .full { margin-top: 16px; border-radius: 14px; background: #0f0f15; border: 1px solid var(--line); padding: 14px; }
-  .full img { display: block; width: 100%; height: auto; }
+  .caption { color: var(--muted); font-size: 15px; margin: 12px 0 0; text-align: center; }
 
-  .demo-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-  .demo-bar .demo-hint { margin: 0; text-align: left; }
-  .toggle {
-    background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 999px;
-    padding: 6px 14px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
-  }
+  /* sounds */
+  .sounds { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .snd { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); cursor: pointer; text-align: left; width: 100%; }
+  .snd:hover { background: var(--panel-2); }
+  .snd[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .snd .play { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--line); }
+  .snd[aria-pressed="true"] .play { background: var(--accent); color: #0b0b10; }
+  .snd .play svg { width: 16px; height: 16px; margin-left: 2px; }
+  .snd b { display: block; font-size: 17px; }
+  .snd small { color: var(--muted); font-size: 14px; }
+  .snd.own { cursor: default; border-style: dashed; }
+  .snd.own .play { background: transparent; border: 1px dashed var(--line); }
 
   /* live keyboard */
-  .demo-hint { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
-  .kb { display: grid; gap: 5px; padding: 12px; border-radius: 14px; background: #0f0f15; border: 1px solid var(--line); }
+  .controls { display: grid; gap: 12px; margin-bottom: 14px; }
+  .row-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .row-ctl > span { color: var(--muted); font-size: 14px; min-width: 64px; }
+  .chip { padding: 7px 14px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 14px; font-weight: 600; cursor: pointer; }
+  .chip:hover { background: var(--panel-2); }
+  .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+  .swatch[aria-pressed="true"] { border-color: #fff; box-shadow: 0 0 0 2px var(--bg) inset; }
+  .swatch.rainbow { background: conic-gradient(#ff4d4d, #ffb84d, #e8ff4d, #4dff88, #4dfff0, #4d8bff, #b04dff, #ff4dc4, #ff4d4d); }
+  .toggle { margin-left: auto; }
+  .kb { position: relative; display: grid; gap: 5px; padding: 12px; border-radius: 14px; background: #0f0f15; border: 1px solid var(--line); }
   .row { display: grid; gap: 5px; }
-  .key {
-    height: clamp(26px, 5.4vw, 42px); border-radius: 7px; background: #101016;
-    border: 1px solid hsl(var(--h) 90% 45% / .65); color: hsl(var(--h) 90% 72%);
-    display: flex; align-items: center; justify-content: center;
-    font-size: clamp(9px, 1.7vw, 14px); font-weight: 600; user-select: none;
-    transition: background .5s, color .5s, border-color .5s, box-shadow .5s;
-  }
-  .key.on {
-    background: hsl(var(--h) 100% 62%); color: #111; border-color: #fff;
-    box-shadow: 0 0 18px hsl(var(--h) 100% 60% / .8); transition: none;
-  }
+  .key { height: clamp(26px, 5.2vw, 42px); border-radius: 7px; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: clamp(9px, 1.7vw, 14px); font-weight: 600; user-select: none; }
+  .typehere { margin-top: 10px; color: var(--muted); font-size: 14px; text-align: center; }
+  .real { margin-top: 16px; border-radius: 14px; background: #0f0f15; border: 1px solid var(--line); padding: 14px; }
+  .real img { display: block; width: 100%; height: auto; }
 
-  /* sections */
-  section { padding: 40px 0 8px; }
-  h2 { font-size: 26px; margin: 0 0 18px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
   .card b { display: block; margin-bottom: 4px; font-size: 17px; }
   .card span { color: var(--muted); font-size: 15px; }
   ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-  ol.steps li {
-    counter-increment: s; position: relative; padding: 14px 16px 14px 58px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-  }
-  ol.steps li::before {
-    content: counter(s); position: absolute; left: 16px; top: 13px; width: 28px; height: 28px;
-    border-radius: 50%; background: var(--line); display: grid; place-items: center; font-weight: 700;
-  }
+  ol.steps li { counter-increment: s; position: relative; padding: 14px 16px 14px 58px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  ol.steps li::before { content: counter(s); position: absolute; left: 16px; top: 13px; width: 28px; height: 28px; border-radius: 50%; background: var(--line); display: grid; place-items: center; font-weight: 700; }
   .warn { color: var(--muted); font-size: 15px; display: block; margin-top: 4px; }
-  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-  td { padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
-  tr:first-child td { border-top: 0; }
-  td:first-child { white-space: nowrap; width: 1%; }
-  kbd {
-    font: 600 13px/1 "Cascadia Mono", Consolas, monospace; padding: 4px 7px; border-radius: 6px;
-    background: #20202b; border: 1px solid #34344a; color: var(--text);
-  }
-  footer { color: var(--muted); font-size: 14px; text-align: center; padding: 48px 0 40px; }
 
+  /* help */
+  .help { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 14px; }
+  .help li b { display: inline; margin: 0; font-size: inherit; }
+  .help .card h3 { margin: 0 0 8px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+  .help ul { margin: 0; padding-left: 18px; color: var(--muted); }
+  .help li { margin: 3px 0; }
+  .help li b { color: var(--text); }
+  kbd { font: 600 13px/1 "Cascadia Mono", Consolas, monospace; padding: 3px 7px; border-radius: 6px; background: #20202b; border: 1px solid #34344a; color: var(--text); white-space: nowrap; }
+  .helpfile { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+  footer { color: var(--muted); font-size: 14px; text-align: center; padding: 48px 0 40px; }
   [data-lang="en"] .cs, [data-lang="cs"] .en { display: none; }
-  @media (max-width: 560px) {
-    td { display: block; width: auto !important; padding: 10px 14px; }
-    td:first-child { padding-bottom: 0; border-top: 1px solid var(--line); }
-    td + td { border-top: 0; }
-    tr:first-child td:first-child { border-top: 0; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .hero h1 span, .download::before { animation: none; }
-  }
+  @media (prefers-reduced-motion: reduce) { .hero h1 span, .download::before { animation: none; } }
 </style>
 </head>
 <body data-lang="cs">
 <div class="wrap">
   <header>
     <a class="brand" href="./"><img src="icon.png" alt="">Keyboard Sound</a>
-    <div class="lang" role="group" aria-label="Language">
-      <button type="button" data-set="cs" aria-pressed="true">CZ</button>
-      <button type="button" data-set="en" aria-pressed="false">EN</button>
-    </div>
+    <nav>
+      <a href="#zvuky"><span class="cs">Zvuky</span><span class="en">Sounds</span></a>
+      <a href="#efekty"><span class="cs">Efekty</span><span class="en">Effects</span></a>
+      <a href="#napoveda"><span class="cs">Nápověda</span><span class="en">Help</span></a>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-set="cs" aria-pressed="true">CZ</button>
+        <button type="button" data-set="en" aria-pressed="false">EN</button>
+      </div>
+    </nav>
   </header>
 
   <div class="hero">
     <h1><span class="cs">Každá klávesa cvakne a&nbsp;rozsvítí se</span><span class="en">Every key clicks and lights up</span></h1>
     <p>
-      <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. I ve hrách. Zdarma pro Windows 10 a 11.</span>
-      <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. Works in games too. Free for Windows 10 and 11.</span>
+      <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. 3 zvuky nebo tvůj vlastní, 5 světelných efektů. Funguje i ve hrách. Zdarma pro Windows 10 a 11.</span>
+      <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. 3 sounds or your own, 5 light effects. Works in games too. Free for Windows 10 and 11.</span>
     </p>
     <div class="actions">
       <a class="download" href="https://github.com/pepepep2323/keyboard-sound/releases/latest/download/KeyboardSound.zip">
@@ -186,59 +152,72 @@
       </button>
     </div>
     <div class="meta">
-      <span class="cs">KeyboardSound.zip · cca 9 MB · Windows · bez instalace</span>
-      <span class="en">KeyboardSound.zip · about 9 MB · Windows · no installation</span>
+      <span class="cs">Verze 1.1 · KeyboardSound.zip · cca 9 MB · bez instalace</span>
+      <span class="en">Version 1.1 · KeyboardSound.zip · about 9 MB · no installation</span>
     </div>
   </div>
 
   <section>
-    <h2><span class="cs">Jak to vypadá</span><span class="en">What it looks like</span></h2>
-    <div class="shot">
-      <img src="preview.png" alt="RGB keyboard and mouse overlay in the corner of the screen" width="1096" height="278">
-    </div>
+    <div class="shot"><img src="preview.png" alt="RGB keyboard and mouse overlay in the corner of the screen" width="1096" height="278"></div>
     <p class="caption">
-      <span class="cs">Overlay sedí v rohu obrazovky přes hru. Zmáčknuté klávesy a tlačítka myši se rozsvítí, myš kliká skrz.</span>
-      <span class="en">The overlay sits in a corner of your screen, on top of your game. Pressed keys and mouse buttons glow, and clicks go straight through.</span>
-    </p>
-    <div class="full"><img src="preview.png" alt="Close-up of the overlay: W, A, Shift and the left mouse button are lit" width="1096" height="278" loading="lazy"></div>
-    <p class="caption">
-      <span class="cs">Zblízka: drží se W + A, Shift a levé tlačítko myši. Popisky kláves se přizpůsobí tvé klávesnici (třeba ě š č ř ž).</span>
-      <span class="en">Close-up: W + A, Shift and the left mouse button are held. Key labels follow your keyboard layout.</span>
+      <span class="cs">Takhle to vypadá: klávesnice sedí v rohu obrazovky přes hru, zmáčknuté klávesy a tlačítka myši se rozsvítí a myš kliká skrz.</span>
+      <span class="en">This is how it looks: the keyboard sits in a corner of your screen on top of your game, pressed keys and mouse buttons glow, and clicks go straight through.</span>
     </p>
   </section>
 
-  <section class="demo">
-    <h2><span class="cs">Vyzkoušej si to</span><span class="en">Try it</span></h2>
-    <div class="demo-bar">
-      <div class="demo-hint">
-        <span class="cs">Začni psát: klávesy svítí a cvakají stejně jako v aplikaci.</span>
-        <span class="en">Start typing: keys glow and click just like in the app.</span>
+  <section id="zvuky">
+    <h2><span class="cs">Zvuky</span><span class="en">Sounds</span></h2>
+    <p class="lead"><span class="cs">Klikni a poslechni si je. Vybraný zvuk hraje i na klávesnici níž.</span><span class="en">Click to listen. The selected sound also plays on the keyboard below.</span></p>
+    <div class="sounds" id="sounds">
+      <button class="snd" type="button" data-sound="creamy-1" aria-pressed="true">
+        <span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+        <span><b>Creamy 1</b><small><span class="cs">výchozí</span><span class="en">default</span></small></span>
+      </button>
+      <button class="snd" type="button" data-sound="creamy-2" aria-pressed="false">
+        <span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+        <span><b>Creamy 2</b><small><span class="cs">trochu delší</span><span class="en">a little longer</span></small></span>
+      </button>
+      <button class="snd" type="button" data-sound="creamy-3" aria-pressed="false">
+        <span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+        <span><b>Creamy 3</b><small><span class="cs">krátký a ostrý</span><span class="en">short and crisp</span></small></span>
+      </button>
+      <div class="snd own">
+        <span class="play">＋</span>
+        <span><b><span class="cs">Tvůj vlastní</span><span class="en">Your own</span></b><small><span class="cs">v aplikaci: Zvuk → Nahrát vlastní zvuk (mp3, wav…)</span><span class="en">in the app: Sound → Load your own sound (mp3, wav…)</span></small></span>
       </div>
-      <button class="toggle" id="soundToggle" type="button" aria-pressed="true"></button>
+    </div>
+  </section>
+
+  <section id="efekty">
+    <h2><span class="cs">Efekty a barvy</span><span class="en">Effects and colors</span></h2>
+    <p class="lead"><span class="cs">Vyber efekt a barvu a začni psát. Klávesnice tady funguje stejně jako v aplikaci.</span><span class="en">Pick an effect and a color, then start typing. This keyboard works just like the app.</span></p>
+    <div class="controls">
+      <div class="row-ctl" id="effects">
+        <span class="cs">Efekt</span><span class="en">Effect</span>
+        <button class="chip" type="button" data-effect="wave" aria-pressed="true"><span class="cs">Duhová vlna</span><span class="en">Rainbow wave</span></button>
+        <button class="chip" type="button" data-effect="static" aria-pressed="false"><span class="cs">Statické světlo</span><span class="en">Static light</span></button>
+        <button class="chip" type="button" data-effect="breathe" aria-pressed="false"><span class="cs">Dýchání</span><span class="en">Breathing</span></button>
+        <button class="chip" type="button" data-effect="ripple" aria-pressed="false"><span class="cs">Vlna od klávesy</span><span class="en">Ripple from key</span></button>
+        <button class="chip" type="button" data-effect="reactive" aria-pressed="false"><span class="cs">Jen stisknuté</span><span class="en">Only pressed keys</span></button>
+      </div>
+      <div class="row-ctl" id="colors">
+        <span class="cs">Barva</span><span class="en">Color</span>
+      </div>
+      <div class="row-ctl">
+        <button class="chip toggle" id="soundToggle" type="button" aria-pressed="true"></button>
+      </div>
     </div>
     <div class="kb" id="kb"></div>
-  </section>
-
-  <section>
-    <h2><span class="cs">Co umí</span><span class="en">Features</span></h2>
-    <div class="cards">
-      <div class="card"><b><span class="cs">🔊 Cvakání</span><span class="en">🔊 Click sound</span></b>
-        <span class="cs">Příjemné cvaknutí při každé klávese, i když píšeš hodně rychle.</span>
-        <span class="en">A satisfying click on every key press, even when you type fast.</span></div>
-      <div class="card"><b><span class="cs">🌈 RGB klávesnice</span><span class="en">🌈 RGB keyboard</span></b>
-        <span class="cs">Celá klávesnice na obrazovce, zmáčknuté klávesy se rozsvítí. Ukazuje i české znaky.</span>
-        <span class="en">A full on-screen keyboard; pressed keys glow. Matches your keyboard layout.</span></div>
-      <div class="card"><b><span class="cs">🖱️ Myš</span><span class="en">🖱️ Mouse</span></b>
-        <span class="cs">Levé, pravé a prostřední tlačítko, kolečko i boční tlačítka.</span>
-        <span class="en">Left, right and middle buttons, scroll wheel and side buttons.</span></div>
-      <div class="card"><b><span class="cs">🎮 Do her</span><span class="en">🎮 For games</span></b>
-        <span class="cs">Nezpomaluje hru, myš kliká skrz overlay. Umístění a velikost si nastavíš sám.</span>
-        <span class="en">Doesn't slow your game down; clicks go through. Move and resize it however you like.</span></div>
+    <p class="typehere"><span class="cs">⌨️ Piš na klávesnici, nebo klikni na klávesy myší.</span><span class="en">⌨️ Type on your keyboard, or click the keys with your mouse.</span></p>
+    <div class="real">
+      <img id="realShot" src="fx-wave.png" alt="" width="1096" height="278" loading="lazy">
     </div>
+    <p class="caption"><span class="cs">Skutečný snímek z aplikace pro vybraný efekt.</span><span class="en">A real screenshot of the app with the selected effect.</span></p>
   </section>
 
   <section>
     <h2><span class="cs">Jak to spustit</span><span class="en">How to start</span></h2>
+    <p class="lead"></p>
     <ol class="steps">
       <li><span class="cs">Stáhni <b>KeyboardSound.zip</b> a rozbal ho (pravý klik → Extrahovat vše).</span>
           <span class="en">Download <b>KeyboardSound.zip</b> and unzip it (right-click → Extract All).</span></li>
@@ -246,27 +225,76 @@
           <span class="en">Double-click <b>KeyboardSound.exe</b>.</span>
           <span class="warn cs">Když Windows napíše „Systém Windows ochránil váš počítač“, klikni na <b>Další informace → Přesto spustit</b>. Aplikace jen není placeně podepsaná, proto ji Windows zatím nezná.</span>
           <span class="warn en">If Windows says “Windows protected your PC”, click <b>More info → Run anyway</b>. The app just isn't code-signed, so Windows doesn't know it yet.</span></li>
-      <li><span class="cs">Hotovo. Vpravo dole u hodin se objeví ikona klávesnice, pravým klikem na ni najdeš nastavení.</span>
-          <span class="en">Done. A keyboard icon appears near the clock; right-click it for settings.</span></li>
+      <li><span class="cs">Hotovo. Vpravo dole u hodin se objeví ikona klávesnice a pravým klikem na ni otevřeš menu.</span>
+          <span class="en">Done. A keyboard icon appears near the clock; right-click it to open the menu.</span></li>
     </ol>
   </section>
 
-  <section>
-    <h2><span class="cs">Ovládání</span><span class="en">Controls</span></h2>
-    <table>
-      <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F11</kbd></td>
-          <td><span class="cs">Přesunout nebo zvětšit overlay: táhni myší, kolečkem měníš velikost, pravý klik otevře další možnosti. Znovu stiskni pro uložení.</span>
-              <span class="en">Move or resize the overlay: drag it, scroll to resize, right-click for options. Press again to save.</span></td></tr>
-      <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F12</kbd></td>
-          <td><span class="cs">Ukončit aplikaci.</span><span class="en">Quit the app.</span></td></tr>
-      <tr><td><span class="cs">Ikona u hodin</span><span class="en">Tray icon</span></td>
-          <td><span class="cs">Zapnout/vypnout zvuk, skrýt overlay, spouštět s Windows, ukončit.</span>
-              <span class="en">Sound on/off, hide overlay, start with Windows, quit.</span></td></tr>
-    </table>
-    <p class="meta">
-      <span class="cs">Ve hrách je overlay vidět v režimu „okno bez okraje“, ne v exkluzivní celé obrazovce.</span>
-      <span class="en">In games the overlay shows in borderless / windowed fullscreen, not exclusive fullscreen.</span>
-    </p>
+  <section id="napoveda">
+    <h2><span class="cs">Nápověda</span><span class="en">Help</span></h2>
+    <p class="lead"><span class="cs">Totéž najdeš i v aplikaci (menu → Nápověda) a v souboru NAVOD.txt v ZIPu.</span><span class="en">The same help is in the app (menu → Help) and in NAVOD.txt inside the ZIP.</span></p>
+    <div class="help">
+      <div class="card">
+        <h3>📋 <span class="cs">Jak otevřít menu</span><span class="en">Open the menu</span></h3>
+        <ul class="cs">
+          <li><b>Pravý klik</b> na ikonu klávesnice vpravo dole u hodin.</li>
+          <li>Nevidíš ji? Klikni na šipku <b>^</b> vedle hodin.</li>
+          <li>V menu: zvuk, výběr zvuku, vlastní zvuk, hlasitost, efekt, barva, spouštění s Windows, nápověda, ukončení.</li>
+        </ul>
+        <ul class="en">
+          <li><b>Right-click</b> the keyboard icon near the clock (bottom right).</li>
+          <li>Can't see it? Click the <b>^</b> arrow next to the clock.</li>
+          <li>The menu has: sound, sound choice, your own sound, volume, effect, color, start with Windows, help, quit.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>↔️ <span class="cs">Přesunutí a velikost</span><span class="en">Move and resize</span></h3>
+        <ul class="cs">
+          <li>Zmáčkni <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> (nebo menu → Přesunout).</li>
+          <li><b>Táhni</b> klávesnici myší, <b>kolečkem</b> měníš velikost.</li>
+          <li><b>Pravý klik</b> na klávesnici: numpad, myš, pozadí, průhlednost, roh.</li>
+          <li>Znovu <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> = hotovo, pozice se uloží.</li>
+        </ul>
+        <ul class="en">
+          <li>Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> (or menu → Move).</li>
+          <li><b>Drag</b> the keyboard, <b>scroll</b> to resize.</li>
+          <li><b>Right-click</b> the keyboard: numpad, mouse, background, opacity, corner.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> again = done, the position is saved.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>🔊 <span class="cs">Zvuk</span><span class="en">Sound</span></h3>
+        <ul class="cs">
+          <li>Menu → <b>Zvuk</b>: zapnout/vypnout, Creamy 1/2/3, hlasitost.</li>
+          <li><b>Vlastní zvuk</b>: menu → Zvuk → Nahrát vlastní zvuk… (wav, mp3, m4a, ogg, flac, wma). Použijí se první 2 sekundy a hlasitost se srovná.</li>
+        </ul>
+        <ul class="en">
+          <li>Menu → <b>Sound</b>: on/off, Creamy 1/2/3, volume.</li>
+          <li><b>Your own sound</b>: menu → Sound → Load your own sound… (wav, mp3, m4a, ogg, flac, wma). The first 2 seconds are used and the volume is matched.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>⏻ <span class="cs">Skrytí a vypnutí</span><span class="en">Hide and quit</span></h3>
+        <ul class="cs">
+          <li><b>Skrýt klávesnici</b>: menu → Zobrazit klávesnici (zvuk hraje dál).</li>
+          <li><b>Vypnout</b>: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F12</kbd> nebo menu → Ukončit.</li>
+          <li><b>Spouštět s Windows</b>: menu → Spouštět s Windows.</li>
+          <li><b>Hry</b>: klávesnice je vidět v režimu „okno bez okraje“, ne v exkluzivní celé obrazovce.</li>
+        </ul>
+        <ul class="en">
+          <li><b>Hide the keyboard</b>: menu → Show keyboard (the sound keeps playing).</li>
+          <li><b>Quit</b>: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F12</kbd> or menu → Quit.</li>
+          <li><b>Start with Windows</b>: menu → Start with Windows.</li>
+          <li><b>Games</b>: the keyboard shows in borderless / windowed fullscreen, not exclusive fullscreen.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="helpfile">
+      <a class="ghost" href="https://github.com/pepepep2323/keyboard-sound/blob/main/NAVOD.txt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></svg>
+        <span class="cs">Návod jako soubor (NAVOD.txt)</span><span class="en">Help as a file (NAVOD.txt)</span>
+      </a>
+    </div>
   </section>
 
   <footer>
@@ -277,7 +305,7 @@
 </div>
 
 <script>
-  // language switch (remembers the choice)
+  // ---------------- language
   const body = document.body;
   function setLang(lang) {
     body.dataset.lang = lang;
@@ -285,86 +313,41 @@
     document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", b.dataset.set === lang));
     try { localStorage.setItem("lang", lang); } catch (e) {}
   }
-  let saved = null;
-  try { saved = localStorage.getItem("lang"); } catch (e) {}
+  let savedLang = null;
+  try { savedLang = localStorage.getItem("lang"); } catch (e) {}
   const nav = (navigator.language || "").toLowerCase();
-  setLang(saved || (nav.startsWith("cs") || nav.startsWith("sk") ? "cs" : "en"));
+  setLang(savedLang || (nav.startsWith("cs") || nav.startsWith("sk") ? "cs" : "en"));
   document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => setLang(b.dataset.set)));
 
-  // live RGB keyboard
-  const rows = [
-    [["Esc", "Escape", 1], ["1", "Digit1"], ["2", "Digit2"], ["3", "Digit3"], ["4", "Digit4"], ["5", "Digit5"], ["6", "Digit6"], ["7", "Digit7"], ["8", "Digit8"], ["9", "Digit9"], ["0", "Digit0"], ["⌫", "Backspace", 1.6]],
-    [["Tab", "Tab", 1.4], ["Q", "KeyQ"], ["W", "KeyW"], ["E", "KeyE"], ["R", "KeyR"], ["T", "KeyT"], ["Z", "KeyY"], ["U", "KeyU"], ["I", "KeyI"], ["O", "KeyO"], ["P", "KeyP"], ["Enter", "Enter", 1.2]],
-    [["Caps", "CapsLock", 1.7], ["A", "KeyA"], ["S", "KeyS"], ["D", "KeyD"], ["F", "KeyF"], ["G", "KeyG"], ["H", "KeyH"], ["J", "KeyJ"], ["K", "KeyK"], ["L", "KeyL"], ["Shift", "ShiftRight", 1.9]],
-    [["Shift", "ShiftLeft", 2.2], ["Y", "KeyZ"], ["X", "KeyX"], ["C", "KeyC"], ["V", "KeyV"], ["B", "KeyB"], ["N", "KeyN"], ["M", "KeyM"], [",", "Comma"], [".", "Period"], ["↑", "ArrowUp", 1.4]],
-    [["Ctrl", "ControlLeft", 1.4], ["Alt", "AltLeft", 1.2], ["", "Space", 6.4], ["←", "ArrowLeft", 1.1], ["↓", "ArrowDown", 1.1], ["→", "ArrowRight", 1.1]],
-  ];
-  const kb = document.getElementById("kb");
-  const byCode = {};
-  const keys = [];
-  rows.forEach(row => {
-    const r = document.createElement("div");
-    r.className = "row";
-    r.style.gridTemplateColumns = row.map(k => (k[2] || 1) + "fr").join(" ");
-    let x = 0;
-    const total = row.reduce((s, k) => s + (k[2] || 1), 0);
-    row.forEach(([label, code, w = 1]) => {
-      const el = document.createElement("div");
-      el.className = "key";
-      el.textContent = label;
-      el.dataset.pos = (x + w / 2) / total;
-      x += w;
-      r.appendChild(el);
-      keys.push(el);
-      (byCode[code] = byCode[code] || []).push(el);
-    });
-    kb.appendChild(r);
-  });
-
-  // moving rainbow (paused when the tab is hidden or motion is reduced)
-  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function paint(t) {
-    const shift = still ? 0 : t / 1000 * 54;
-    keys.forEach(k => k.style.setProperty("--h", (k.dataset.pos * 360 - shift + 3600) % 360));
-    if (!still) requestAnimationFrame(paint);
-  }
-  requestAnimationFrame(paint);
-
-  function flash(els, hold) {
-    els.forEach(el => {
-      el.classList.add("on");
-      clearTimeout(el._t);
-      if (!hold) el._t = setTimeout(() => el.classList.remove("on"), 120);
-    });
-  }
-  // ---- sound (same click as the app, with the same small random pitch change)
+  // ---------------- sound (same sounds and the same small random pitch change as the app)
   const AC = window.AudioContext || window.webkitAudioContext;
   const audio = AC ? new AC() : null;
-  let clickBuffer = null;
-  if (audio) {
-    fetch("click.wav").then(r => r.arrayBuffer()).then(b => audio.decodeAudioData(b))
-      .then(buf => { clickBuffer = buf; }).catch(() => {});
-  }
-  function playClick() {
-    if (!audio || !clickBuffer) return;
+  const buffers = {};
+  let currentSound = "creamy-1";
+  ["creamy-1", "creamy-2", "creamy-3"].forEach(name => {
+    if (!audio) return;
+    fetch("sounds/" + name + ".wav").then(r => r.arrayBuffer()).then(b => audio.decodeAudioData(b))
+      .then(buf => { buffers[name] = buf; }).catch(() => {});
+  });
+  function playClick(name) {
+    const buf = buffers[name || currentSound];
+    if (!audio || !buf) return;
     if (audio.state === "suspended") audio.resume();
     const src = audio.createBufferSource();
-    src.buffer = clickBuffer;
+    src.buffer = buf;
     src.playbackRate.value = 1 + (Math.random() * 2 - 1) * 0.04;
     const gain = audio.createGain();
     gain.gain.value = 0.85 + Math.random() * 0.15;
     src.connect(gain).connect(audio.destination);
     src.start();
   }
-
   let soundOn = true;
   try { soundOn = localStorage.getItem("sound") !== "off"; } catch (e) {}
   const toggle = document.getElementById("soundToggle");
   function drawToggle() {
     toggle.setAttribute("aria-pressed", soundOn);
-    toggle.innerHTML = soundOn
-      ? '🔊 <span class="cs">Zvuk zapnutý</span><span class="en">Sound on</span>'
-      : '🔇 <span class="cs">Zvuk vypnutý</span><span class="en">Sound off</span>';
+    toggle.innerHTML = soundOn ? '🔊 <span class="cs">Zvuk při psaní: zapnutý</span><span class="en">Sound while typing: on</span>'
+                               : '🔇 <span class="cs">Zvuk při psaní: vypnutý</span><span class="en">Sound while typing: off</span>';
   }
   drawToggle();
   toggle.addEventListener("click", () => {
@@ -373,43 +356,179 @@
     drawToggle();
     if (soundOn) playClick();
   });
+  document.querySelectorAll(".snd[data-sound]").forEach(b => b.addEventListener("click", () => {
+    currentSound = b.dataset.sound;
+    document.querySelectorAll(".snd[data-sound]").forEach(x => x.setAttribute("aria-pressed", x === b));
+    typingBurst(4);
+  }));
 
-  // "Hear the sound": a short burst like someone typing, keys light up along with it
-  const listen = document.getElementById("listen");
-  const burst = ["KeyA", "KeyH", "KeyO", "KeyJ", "Space", "KeyS", "KeyV", "KeyE", "KeyT", "KeyE"];
-  let bursting = false;
-  listen.addEventListener("click", () => {
+  // ---------------- live keyboard
+  const rows = [
+    [["Esc", "Escape", 1], ["1", "Digit1"], ["2", "Digit2"], ["3", "Digit3"], ["4", "Digit4"], ["5", "Digit5"], ["6", "Digit6"], ["7", "Digit7"], ["8", "Digit8"], ["9", "Digit9"], ["0", "Digit0"], ["⌫", "Backspace", 1.6]],
+    [["Tab", "Tab", 1.4], ["Q", "KeyQ"], ["W", "KeyW"], ["E", "KeyE"], ["R", "KeyR"], ["T", "KeyT"], ["Z", "KeyY"], ["U", "KeyU"], ["I", "KeyI"], ["O", "KeyO"], ["P", "KeyP"], ["Enter", "Enter", 1.2]],
+    [["Caps", "CapsLock", 1.7], ["A", "KeyA"], ["S", "KeyS"], ["D", "KeyD"], ["F", "KeyF"], ["G", "KeyG"], ["H", "KeyH"], ["J", "KeyJ"], ["K", "KeyK"], ["L", "KeyL"], ["Shift", "ShiftRight", 1.9]],
+    [["Shift", "ShiftLeft", 2.2], ["Y", "KeyZ"], ["X", "KeyX"], ["C", "KeyC"], ["V", "KeyV"], ["B", "KeyB"], ["N", "KeyN"], ["M", "KeyM"], [",", "Comma"], [".", "Period"], ["↑", "ArrowUp", 1.4]],
+    [["Ctrl", "ControlLeft", 1.4], ["Alt", "AltLeft", 1.2], ["", "Space", 6.4], ["←", "ArrowLeft", 1.1], ["↓", "ArrowDown", 1.1], ["→", "ArrowRight", 1.1]],
+  ];
+  const kb = document.getElementById("kb");
+  const byCode = {}, keys = [];
+  rows.forEach(row => {
+    const r = document.createElement("div");
+    r.className = "row";
+    r.style.gridTemplateColumns = row.map(k => (k[2] || 1) + "fr").join(" ");
+    row.forEach(([label, code]) => {
+      const el = document.createElement("div");
+      el.className = "key";
+      el.textContent = label;
+      const k = { el, code, held: false, releasedAt: -1e9, x: 0, y: 0, xf: 0, last: "" };
+      el.addEventListener("pointerdown", e => { e.preventDefault(); typed = true; press(k); });
+      el.addEventListener("pointerup", () => release(k));
+      el.addEventListener("pointerleave", () => { if (k.held) release(k); });
+      r.appendChild(el);
+      keys.push(k);
+      (byCode[code] = byCode[code] || []).push(k);
+    });
+    kb.appendChild(r);
+  });
+  let unit = 40;
+  function measure() {
+    const box = kb.getBoundingClientRect();
+    keys.forEach(k => {
+      const r = k.el.getBoundingClientRect();
+      k.x = r.left - box.left + r.width / 2;
+      k.y = r.top - box.top + r.height / 2;
+      k.xf = k.x / box.width;
+    });
+    unit = byCode.KeyQ[0].el.getBoundingClientRect().width + 5;
+  }
+  addEventListener("resize", measure);
+  measure();
+
+  // effects, same math as the app
+  const COLORS = { rainbow: null, red: [1, .15, .15], orange: [1, .5, .05], yellow: [1, .85, .1], green: [.15, 1, .3],
+                   cyan: [.1, .9, 1], blue: [.2, .4, 1], purple: [.6, .25, 1], pink: [1, .3, .75], white: [1, 1, 1] };
+  const SPEED = 0.15, GLOW_MS = 500, RIPPLE_LIFE = 1100, RIPPLE_SPEED = 16, DARK = [.063, .063, .086], WHITE = [1, 1, 1], INK = [.05, .05, .05];
+  let effect = "wave", color = "rainbow", ripples = [];
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const css = c => `rgb(${c.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255)).join(",")})`;
+  function hsv(h) {
+    h = ((h % 1) + 1) % 1 * 6;
+    const i = Math.floor(h), f = h - i, q = 1 - f;
+    return [[1, f, 0], [q, 1, 0], [0, 1, f], [0, q, 1], [f, 0, 1], [1, 0, q]][i];
+  }
+  function glowColor(xf, t) {
+    const c = COLORS[color];
+    if (!c) return hsv(xf - (effect === "wave" ? t * SPEED : 0));
+    return c;
+  }
+  function baseColor(xf, t) {
+    let c = glowColor(xf, t);
+    if (effect === "wave" && COLORS[color]) {
+      const k = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(2 * Math.PI * (xf - t * SPEED)));
+      c = c.map(v => v * k);
+    }
+    return c;
+  }
+  function idleLevel(t) {
+    if (effect === "breathe") return 0.12 + 0.88 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / 3));
+    if (effect === "ripple" || effect === "reactive") return 0.25;
+    return 1;
+  }
+  function frame(ms) {
+    const t = ms / 1000, level = idleLevel(t);
+    ripples = ripples.filter(r => ms - r.t0 < RIPPLE_LIFE);
+    for (const k of keys) {
+      let glow = k.held ? 1 : Math.max(0, 1 - (ms - k.releasedAt) / GLOW_MS);
+      for (const r of ripples) {
+        const age = ms - r.t0, radius = age / 1000 * RIPPLE_SPEED * unit;
+        const x = 1 - Math.abs(Math.hypot(k.x - r.x, k.y - r.y) - radius) / (1.3 * unit);
+        if (x > 0) glow = Math.max(glow, 0.85 * x * (1 - age / RIPPLE_LIFE));
+      }
+      const gc = glowColor(k.xf, t), bc = baseColor(k.xf, t);
+      const outline = mix(DARK, bc, 0.55 * level), text = mix(bc, WHITE, 0.3).map(v => v * Math.max(level, 0.35));
+      const fill = glow ? mix(DARK, mix(gc, WHITE, 0.2), glow) : DARK;
+      const border = glow ? mix(mix(DARK, gc, 0.55 * level), WHITE, glow) : outline;
+      const ink = glow ? mix(mix(gc, WHITE, 0.3), INK, glow) : text;
+      const style = css(fill) + css(border) + css(ink) + (glow > 0.5 ? 1 : 0);
+      if (style !== k.last) {
+        k.last = style;
+        k.el.style.background = css(fill);
+        k.el.style.borderColor = css(border);
+        k.el.style.color = css(ink);
+        k.el.style.boxShadow = glow > 0.3 ? `0 0 ${Math.round(16 * glow)}px ${css(gc)}` : "none";
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  function press(k, silent) {
+    if (k.held) return;
+    k.held = true;
+    if (!silent && soundOn) playClick();
+    if (effect === "ripple") ripples = ripples.slice(-11).concat({ x: k.x, y: k.y, t0: performance.now() });
+  }
+  function release(k) { k.held = false; k.releasedAt = performance.now(); }
+  addEventListener("keydown", e => {
+    if (e.repeat || e.ctrlKey || e.metaKey) return;
+    typed = true;
+    const ks = byCode[e.code];
+    if (ks) ks.forEach(k => press(k));
+    else if (soundOn) playClick();
+  });
+  addEventListener("keyup", e => { (byCode[e.code] || []).forEach(release); });
+  addEventListener("blur", () => keys.forEach(k => { if (k.held) release(k); }));
+
+  // effect & color pickers
+  const realShot = document.getElementById("realShot");
+  const shotFor = { wave: "fx-wave.png", static: "fx-static.png", breathe: "fx-breathe.png", ripple: "fx-ripple.png", reactive: "fx-reactive.png" };
+  document.querySelectorAll("#effects .chip").forEach(b => b.addEventListener("click", () => {
+    effect = b.dataset.effect;
+    ripples = [];
+    document.querySelectorAll("#effects .chip").forEach(x => x.setAttribute("aria-pressed", x === b));
+    realShot.src = shotFor[effect];
+    typingBurst(5, true);
+  }));
+  const colorRow = document.getElementById("colors");
+  const colorNames = { rainbow: ["Duha", "Rainbow"], red: ["Červená", "Red"], orange: ["Oranžová", "Orange"], yellow: ["Žlutá", "Yellow"],
+    green: ["Zelená", "Green"], cyan: ["Tyrkysová", "Cyan"], blue: ["Modrá", "Blue"], purple: ["Fialová", "Purple"], pink: ["Růžová", "Pink"], white: ["Bílá", "White"] };
+  Object.keys(COLORS).forEach(name => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "swatch" + (name === "rainbow" ? " rainbow" : "");
+    if (COLORS[name]) b.style.background = css(COLORS[name]);
+    b.title = colorNames[name][0] + " / " + colorNames[name][1];
+    b.setAttribute("aria-label", b.title);
+    b.setAttribute("aria-pressed", name === color);
+    b.addEventListener("click", () => {
+      color = name;
+      colorRow.querySelectorAll(".swatch").forEach(x => x.setAttribute("aria-pressed", x === b));
+    });
+    colorRow.appendChild(b);
+  });
+
+  // "Hear the sound" + previews: a short burst like someone typing
+  let bursting = false, typed = false;
+  const burstCodes = ["KeyA", "KeyH", "KeyO", "KeyJ", "Space", "KeyK", "KeyL", "KeyI", "KeyK", "Enter"];
+  function typingBurst(n, silent) {
     if (bursting) return;
     bursting = true;
-    listen.classList.add("playing");
     let t = 0;
-    burst.forEach((code, n) => {
-      t += n === 0 ? 0 : 70 + Math.random() * 110;
+    for (let i = 0; i < n; i++) {
+      t += i === 0 ? 0 : 80 + Math.random() * 110;
       setTimeout(() => {
-        playClick();
-        if (byCode[code]) flash(byCode[code], false);
-        if (n === burst.length - 1) setTimeout(() => { bursting = false; listen.classList.remove("playing"); }, 300);
+        const k = byCode[burstCodes[(i + Math.floor(Math.random() * 3)) % burstCodes.length]][0];
+        if (!silent) playClick();
+        press(k, true);
+        setTimeout(() => release(k), 60);
+        if (i === n - 1) setTimeout(() => { bursting = false; }, 200);
       }, t);
-    });
-  });
+    }
+  }
+  document.getElementById("listen").addEventListener("click", () => typingBurst(10));
 
-  addEventListener("keydown", e => {
-    if (e.repeat) return;
-    if (soundOn && !e.ctrlKey && !e.metaKey) playClick();
-    if (byCode[e.code]) flash(byCode[e.code], true);
-  });
-  addEventListener("keyup", e => { if (byCode[e.code]) byCode[e.code].forEach(el => el.classList.remove("on")); });
-  addEventListener("blur", () => keys.forEach(el => el.classList.remove("on")));
-
-  // little idle animation so the keyboard looks alive before you type
-  const demoWord = ["KeyK", "KeyL", "KeyI", "KeyK"];
-  let i = 0, typed = false;
-  addEventListener("keydown", () => { typed = true; }, { once: true });
-  const idle = setInterval(() => {
-    if (typed) return clearInterval(idle);
-    const els = byCode[demoWord[i++ % demoWord.length]];
-    if (els) flash(els, false);
-  }, 700);
+  // idle animation so the keyboard looks alive before you type
+  const idle = setInterval(() => { if (typed) return clearInterval(idle); typingBurst(1, true); }, 900);
 </script>
 </body>
 </html>

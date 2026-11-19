@@ -1,0 +1,99 @@
+KEYBOARD SOUND - NÁVOD / HELP
+=============================
+https://pepepep2323.github.io/keyboard-sound
+
+----------------------------------------------------------------
+ČESKY
+----------------------------------------------------------------
+
+SPUŠTĚNÍ
+  1. Rozbal ZIP a dvakrát klikni na KeyboardSound.exe.
+  2. Když Windows napíše "Systém Windows ochránil váš počítač":
+     klikni na "Další informace" a pak "Přesto spustit".
+     (Aplikace jen není placeně podepsaná, proto ji Windows nezná.)
+  3. Vpravo dole u hodin se objeví ikona klávesnice. Hotovo.
+
+MENU
+  Pravý klik na ikonu klávesnice vpravo dole u hodin.
+  (Když ji nevidíš, klikni na šipku ^ vedle hodin.)
+  V menu najdeš:
+    - Přesunout / změnit velikost
+    - Zobrazit klávesnici (vypnutím ji skryješ, zvuk hraje dál)
+    - Zvuk: zapnout/vypnout, Creamy 1 / 2 / 3, vlastní zvuk, hlasitost
+    - Efekt: duhová vlna, statické světlo, dýchání,
+             vlna od klávesy, jen stisknuté klávesy
+    - Barva: duha nebo jedna barva
+    - Spouštět s Windows
+    - Nápověda
+    - Ukončit
+
+PŘESUNUTÍ A VELIKOST
+  Ctrl+Alt+F11 (nebo menu > Přesunout / změnit velikost)
+    - táhni klávesnici myší
+    - kolečkem myši měníš velikost
+    - pravý klik na klávesnici: numpad, myš, pozadí,
+      průhlednost, roh obrazovky
+    - znovu Ctrl+Alt+F11 = hotovo (pozice se uloží)
+
+VLASTNÍ ZVUK
+  Menu > Zvuk > Nahrát vlastní zvuk...
+  Podporované soubory: wav, mp3, m4a, ogg, flac, wma.
+  Použijí se první 2 sekundy, ticho na začátku se uřízne
+  a hlasitost se srovná s ostatními zvuky.
+
+VYPNUTÍ
+  Ctrl+Alt+F12, nebo menu > Ukončit.
+
+HRY
+  Klávesnice je vidět jen v režimu "okno bez okraje" (borderless /
+  windowed fullscreen), ne v exkluzivní celé obrazovce.
+
+Nastavení se ukládá do %APPDATA%\KeyboardSound.
+
+----------------------------------------------------------------
+ENGLISH
+----------------------------------------------------------------
+
+START
+  1. Unzip and double-click KeyboardSound.exe.
+  2. If Windows says "Windows protected your PC":
+     click "More info", then "Run anyway".
+     (The app just isn't code-signed, so Windows doesn't know it yet.)
+  3. A keyboard icon appears near the clock (bottom right). Done.
+
+MENU
+  Right-click the keyboard icon near the clock.
+  (If you can't see it, click the ^ arrow next to the clock.)
+  The menu has:
+    - Move / resize
+    - Show keyboard (untick to hide it, the sound keeps playing)
+    - Sound: on/off, Creamy 1 / 2 / 3, your own sound, volume
+    - Effect: rainbow wave, static light, breathing,
+              ripple from key, only pressed keys
+    - Color: rainbow or a single color
+    - Start with Windows
+    - Help
+    - Quit
+
+MOVE AND RESIZE
+  Ctrl+Alt+F11 (or menu > Move / resize)
+    - drag the keyboard with the mouse
+    - scroll the mouse wheel to resize
+    - right-click the keyboard: numpad, mouse, background,
+      opacity, screen corner
+    - Ctrl+Alt+F11 again = done (the position is saved)
+
+YOUR OWN SOUND
+  Menu > Sound > Load your own sound...
+  Supported files: wav, mp3, m4a, ogg, flac, wma.
+  The first 2 seconds are used, silence at the start is cut off
+  and the volume is matched to the other sounds.
+
+QUIT
+  Ctrl+Alt+F12, or menu > Quit.
+
+GAMES
+  The keyboard is only visible in borderless / windowed
+  fullscreen, not in exclusive fullscreen.
+
+Settings are saved in %APPDATA%\KeyboardSound.

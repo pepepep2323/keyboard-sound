@@ -10,3 +10,6 @@ __pycache__/
 overlay_settings.json
 click.mp3
 rocket-champions/
+
+# local tool config
+.claude/

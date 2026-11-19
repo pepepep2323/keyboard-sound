@@ -18,9 +18,11 @@ import array
 import colorsys
 import ctypes
 import json
+import math
 import os
 import queue
 import random
+import shutil
 import signal
 import sys
 import threading
@@ -34,12 +36,11 @@ APP_NAME = "Keyboard Sound"
 FROZEN = getattr(sys, "frozen", False)               # True when running as KeyboardSound.exe
 HERE = os.path.dirname(os.path.abspath(__file__))
 RES_DIR = getattr(sys, "_MEIPASS", HERE)             # where bundled files are inside the .exe
-SOUND_FILE = os.path.join(RES_DIR, "click_loud.wav") # boosted version of click.mp3 (must be .wav)
+SOUNDS_DIR = os.path.join(RES_DIR, "sounds")        # built-in click sounds
 ICON_FILE = os.path.join(RES_DIR, "icon.ico")
 DATA_DIR = os.path.join(os.environ.get("APPDATA", HERE), "KeyboardSound") if FROZEN else HERE
 SETTINGS_FILE = os.path.join(DATA_DIR, "overlay_settings.json")
 
-VOLUME = 1.0           # 0.0 .. 1.0
 VOICES = 8             # how many clicks can overlap when typing fast
 PITCH_VARIATION = 0.04 # small random pitch change per click, sounds natural (0 = off)
 MOUSE_SOUND = False    # also click on mouse buttons
@@ -55,7 +56,13 @@ DEFAULTS = {
     "opacity": 0.9,
     "background": False,         # dark board behind the keys (False = see-through)
     "visible": True,             # overlay shown (tray icon -> Show keyboard overlay)
-    "sound": True,               # click sound on (tray icon -> Click sound)
+    "sound": True,               # click sound on (tray icon -> Sound)
+    "sound_choice": "creamy-1",  # one of SOUNDS below, or "custom"
+    "custom_sound": None,        # path of your own sound (copied into the settings folder)
+    "custom_name": None,         # original file name of your own sound (shown in the menu)
+    "volume": 1.0,               # 0.25 .. 1.0
+    "effect": "wave",            # wave, static, breathe, ripple, reactive
+    "color": "rainbow",          # rainbow or one of COLORS below
     "welcomed": False,           # first-start tip already shown
 }
 ISO_LAYOUT = True      # True = European keyboard (tall Enter), False = US
@@ -65,10 +72,154 @@ RGB_SPEED = 0.15       # how fast the rainbow moves (0 = still)
 RGB_SPREAD = 1.0       # how many rainbows fit across the overlay
 IDLE_BRIGHTNESS = 0.55 # brightness of keys that are not pressed (0..1)
 FPS = 30               # glow animation frame rate
-RGB_FPS = 10           # rainbow update rate (lower = less CPU)
+RGB_FPS = 12           # rainbow / breathing update rate (lower = less CPU)
+BREATHE_PERIOD = 3.0   # seconds for one breath in the "breathe" effect
+RIPPLE_SPEED = 16      # keys per second the "ripple" ring travels
+RIPPLE_LIFE = 1.1      # seconds a ripple lasts
+
+SOUNDS = [("creamy-1", "Creamy 1"), ("creamy-2", "Creamy 2"), ("creamy-3", "Creamy 3")]
+EFFECTS = ["wave", "static", "breathe", "ripple", "reactive"]
+COLORS = {
+    "rainbow": None, "red": (1.0, 0.15, 0.15), "orange": (1.0, 0.5, 0.05), "yellow": (1.0, 0.85, 0.1),
+    "green": (0.15, 1.0, 0.3), "cyan": (0.1, 0.9, 1.0), "blue": (0.2, 0.4, 1.0), "purple": (0.6, 0.25, 1.0),
+    "pink": (1.0, 0.3, 0.75), "white": (1.0, 1.0, 1.0),
+}
+CUSTOM_MAX_SECONDS = 2.0
 
 HOTKEY_EDIT = 0x57     # F11 (with Ctrl+Alt)
 HOTKEY_QUIT = 0x58     # F12 (with Ctrl+Alt)
+
+# ---------------------------------------------------------------- texts (Czech or English, from Windows language)
+def ui_language():
+    try:
+        return "cs" if ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF in (0x05, 0x1B) else "en"
+    except Exception:
+        return "en"
+
+
+HELP_CS = """KEYBOARD SOUND - NÁPOVĚDA
+
+MENU
+  Pravý klik na ikonu klávesnice vpravo dole u hodin.
+  (Když ji nevidíš, klikni na šipku ^ vedle hodin.)
+  Najdeš tam: zvuk, výběr zvuku, vlastní zvuk, hlasitost,
+  efekty, barvy, spouštění s Windows a ukončení.
+
+PŘESUNUTÍ A VELIKOST
+  Ctrl+Alt+F11 (nebo menu > Přesunout / změnit velikost)
+  - táhni klávesnici myší
+  - kolečkem myši měníš velikost
+  - pravý klik na klávesnici: numpad, myš, pozadí,
+    průhlednost, roh obrazovky
+  - znovu Ctrl+Alt+F11 = hotovo (uloží se)
+
+VLASTNÍ ZVUK
+  Menu > Zvuk > Nahrát vlastní zvuk...
+  (wav, mp3, m4a, ogg, flac, wma - použijí se první 2 sekundy)
+
+SKRÝT KLÁVESNICI
+  Menu > Zobrazit klávesnici (zvuk hraje dál)
+
+VYPNOUT
+  Ctrl+Alt+F12, nebo menu > Ukončit
+
+HRY
+  Klávesnice je vidět jen v režimu "okno bez okraje"
+  (borderless), ne v exkluzivní celé obrazovce.
+
+Nastavení se ukládá do %APPDATA%\\KeyboardSound."""
+
+HELP_EN = """KEYBOARD SOUND - HELP
+
+MENU
+  Right-click the keyboard icon near the clock (bottom right).
+  (If you can't see it, click the ^ arrow next to the clock.)
+  There you'll find: sound on/off, sound choice, your own sound,
+  volume, effects, colors, start with Windows and quit.
+
+MOVE AND RESIZE
+  Ctrl+Alt+F11 (or menu > Move / resize)
+  - drag the keyboard with the mouse
+  - scroll the mouse wheel to resize
+  - right-click the keyboard: numpad, mouse, background,
+    opacity, screen corner
+  - Ctrl+Alt+F11 again = done (it's saved)
+
+YOUR OWN SOUND
+  Menu > Sound > Load your own sound...
+  (wav, mp3, m4a, ogg, flac, wma - the first 2 seconds are used)
+
+HIDE THE KEYBOARD
+  Menu > Show keyboard (the sound keeps playing)
+
+QUIT
+  Ctrl+Alt+F12, or menu > Quit
+
+GAMES
+  The keyboard is only visible in borderless / windowed
+  fullscreen, not in exclusive fullscreen.
+
+Settings are saved in %APPDATA%\\KeyboardSound."""
+
+TEXTS = {
+    "cs": {
+        "move": "Přesunout / změnit velikost\tCtrl+Alt+F11", "show": "Zobrazit klávesnici",
+        "sound": "Zvuk", "sound_on": "Zvuk zapnutý", "own": "Vlastní: {}", "upload": "Nahrát vlastní zvuk...",
+        "volume": "Hlasitost", "effect": "Efekt", "color": "Barva", "autostart": "Spouštět s Windows",
+        "help": "Nápověda", "quit": "Ukončit\tCtrl+Alt+F12",
+        "fx_wave": "Duhová vlna", "fx_static": "Statické světlo", "fx_breathe": "Dýchání",
+        "fx_ripple": "Vlna od klávesy", "fx_reactive": "Jen stisknuté klávesy",
+        "c_rainbow": "Duha", "c_red": "Červená", "c_orange": "Oranžová", "c_yellow": "Žlutá",
+        "c_green": "Zelená", "c_cyan": "Tyrkysová", "c_blue": "Modrá", "c_purple": "Fialová",
+        "c_pink": "Růžová", "c_white": "Bílá",
+        "running_title": "Keyboard Sound běží",
+        "running_text": "Pravý klik na tuhle ikonu = menu a nápověda.\nCtrl+Alt+F11 = přesunout, Ctrl+Alt+F12 = vypnout.",
+        "already": "Keyboard Sound už běží.\nNajdeš ho jako ikonu klávesnice vpravo dole u hodin.",
+        "sound_error": "Tenhle zvuk nejde přehrát:\n{}\n\nZkus jiný soubor (wav, mp3, m4a, ogg, flac, wma).",
+        "pick_title": "Vyber zvuk kláves", "pick_filter": "Zvuky",
+        "edit_hint": "Táhni = přesun  •  Kolečko = velikost  •  Pravý klik = možnosti  •  Ctrl+Alt+F11 = hotovo",
+        "numpad_hide": "Skrýt numpad", "numpad_show": "Zobrazit numpad",
+        "mouse_hide": "Skrýt myš", "mouse_show": "Zobrazit myš",
+        "mouse_left": "Myš vlevo", "mouse_right": "Myš vpravo",
+        "bg_hide": "Skrýt pozadí", "bg_show": "Zobrazit pozadí",
+        "bigger": "Větší", "smaller": "Menší", "opacity": "Průhlednost", "corner": "Do rohu obrazovky",
+        "top-left": "vlevo nahoře", "top-right": "vpravo nahoře",
+        "bottom-left": "vlevo dole", "bottom-right": "vpravo dole",
+        "done": "Hotovo (zamknout pozici)", "quit_plain": "Ukončit", "help_title": "Keyboard Sound - nápověda",
+        "help_text": HELP_CS,
+    },
+    "en": {
+        "move": "Move / resize\tCtrl+Alt+F11", "show": "Show keyboard",
+        "sound": "Sound", "sound_on": "Sound on", "own": "Own: {}", "upload": "Load your own sound...",
+        "volume": "Volume", "effect": "Effect", "color": "Color", "autostart": "Start with Windows",
+        "help": "Help", "quit": "Quit\tCtrl+Alt+F12",
+        "fx_wave": "Rainbow wave", "fx_static": "Static light", "fx_breathe": "Breathing",
+        "fx_ripple": "Ripple from key", "fx_reactive": "Only pressed keys",
+        "c_rainbow": "Rainbow", "c_red": "Red", "c_orange": "Orange", "c_yellow": "Yellow",
+        "c_green": "Green", "c_cyan": "Cyan", "c_blue": "Blue", "c_purple": "Purple",
+        "c_pink": "Pink", "c_white": "White",
+        "running_title": "Keyboard Sound is running",
+        "running_text": "Right-click this icon for the menu and help.\nCtrl+Alt+F11 = move, Ctrl+Alt+F12 = quit.",
+        "already": "Keyboard Sound is already running.\nLook for the keyboard icon near the clock (bottom right).",
+        "sound_error": "This sound can't be played:\n{}\n\nTry another file (wav, mp3, m4a, ogg, flac, wma).",
+        "pick_title": "Choose a key sound", "pick_filter": "Sounds",
+        "edit_hint": "Drag = move  •  Scroll = size  •  Right-click = options  •  Ctrl+Alt+F11 = done",
+        "numpad_hide": "Hide numpad", "numpad_show": "Show numpad",
+        "mouse_hide": "Hide mouse", "mouse_show": "Show mouse",
+        "mouse_left": "Mouse on the left", "mouse_right": "Mouse on the right",
+        "bg_hide": "Hide background", "bg_show": "Show background",
+        "bigger": "Bigger", "smaller": "Smaller", "opacity": "Opacity", "corner": "Snap to corner",
+        "top-left": "top left", "top-right": "top right", "bottom-left": "bottom left", "bottom-right": "bottom right",
+        "done": "Done (lock position)", "quit_plain": "Quit", "help_title": "Keyboard Sound - help",
+        "help_text": HELP_EN,
+    },
+}
+LANG = ui_language()
+
+
+def T(key):
+    return TEXTS[LANG].get(key) or TEXTS["en"][key]
+
 
 # ---------------------------------------------------------------- win32 setup
 user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -175,23 +326,151 @@ winmm.waveOutClose.argtypes = [wintypes.HANDLE]
 
 
 # ---------------------------------------------------------------- audio
-play_requests = queue.Queue()
+play_requests = queue.Queue()     # 1 = click, ("load", path, volume, preview) = change sound, None = quit
 
 
-def load_variants():
-    """Loads the click and makes a few slightly different versions so repeated
-    clicks don't sound robotic / phasey when they overlap."""
-    with wave.open(SOUND_FILE, "rb") as w:
-        ch, width, rate = w.getnchannels(), w.getsampwidth(), w.getframerate()
-        if width != 2:
-            raise RuntimeError("click sound must be a 16-bit WAV")
-        samples = array.array("h", w.readframes(w.getnframes()))
+def sound_path(cfg):
+    if cfg.get("sound_choice") == "custom" and cfg.get("custom_sound") and os.path.exists(cfg["custom_sound"]):
+        return cfg["custom_sound"]
+    name = cfg.get("sound_choice")
+    if name not in dict(SOUNDS):
+        name = SOUNDS[0][0]
+    return os.path.join(SOUNDS_DIR, name + ".wav")
+
+
+class GUID(ctypes.Structure):
+    _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD), ("Data3", wintypes.WORD),
+                ("Data4", ctypes.c_ubyte * 8)]
+
+    def __init__(self, text):
+        h = text.replace("-", "")
+        super().__init__(int(h[:8], 16), int(h[8:12], 16), int(h[12:16], 16),
+                         (ctypes.c_ubyte * 8)(*bytes.fromhex(h[16:])))
+
+
+MF_MT_MAJOR_TYPE = GUID("48eba18e-f8c9-4687-bf11-0a74c9f96a8f")
+MF_MT_SUBTYPE = GUID("f7e34c9a-42e8-4714-b74b-cb29d72c35e5")
+MF_MT_AUDIO_BITS_PER_SAMPLE = GUID("f2deb57f-40fa-4764-aa33-ed4f2d1ff669")
+MF_MT_AUDIO_NUM_CHANNELS = GUID("37e48bf5-645e-4c5b-89de-ada9e29b696a")
+MF_MT_AUDIO_SAMPLES_PER_SECOND = GUID("5faeeae7-0290-4c31-9e8a-c534f68d9dba")
+MFMediaType_Audio = GUID("73647561-0000-0010-8000-00AA00389B71")
+MFAudioFormat_PCM = GUID("00000001-0000-0010-8000-00AA00389B71")
+
+
+def com(obj, index, *args, argtypes=(), restype=ctypes.c_long):
+    """Calls method number `index` of a COM object (no comtypes needed)."""
+    vtable = ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+    result = ctypes.WINFUNCTYPE(restype, ctypes.c_void_p, *argtypes)(vtable[index])(obj, *args)
+    if restype is ctypes.c_long and result < 0:
+        raise OSError(f"Media Foundation error 0x{result & 0xFFFFFFFF:08X}")
+    return result
+
+
+def mf_decode(path, max_seconds):
+    """Decodes mp3 / m4a / ogg / flac / wma / wav to 16-bit PCM with Windows Media Foundation."""
+    vp, dw = ctypes.c_void_p, wintypes.DWORD
+    ref = ctypes.byref
+    ctypes.windll.ole32.CoInitializeEx(None, 0)
+    mfplat, mfrw = ctypes.WinDLL("mfplat"), ctypes.WinDLL("mfreadwrite")
+    if mfplat.MFStartup(0x00020070, 0) < 0:
+        raise OSError("Media Foundation is not available")
+    reader, mtype, cur = vp(), vp(), vp()
+    first_audio = 0xFFFFFFFD
+    try:
+        if mfrw.MFCreateSourceReaderFromURL(ctypes.c_wchar_p(path), None, ref(reader)) < 0:
+            raise OSError("unknown or damaged audio file")
+        com(reader, 4, 0xFFFFFFFE, False, argtypes=(dw, wintypes.BOOL))          # deselect all streams
+        com(reader, 4, first_audio, True, argtypes=(dw, wintypes.BOOL))          # select the audio stream
+        mfplat.MFCreateMediaType(ref(mtype))
+        com(mtype, 24, ref(MF_MT_MAJOR_TYPE), ref(MFMediaType_Audio), argtypes=(vp, vp))   # SetGUID
+        com(mtype, 24, ref(MF_MT_SUBTYPE), ref(MFAudioFormat_PCM), argtypes=(vp, vp))
+        com(mtype, 21, ref(MF_MT_AUDIO_BITS_PER_SAMPLE), 16, argtypes=(vp, wintypes.UINT))  # SetUINT32
+        com(reader, 7, first_audio, None, mtype, argtypes=(dw, vp, vp))          # SetCurrentMediaType
+        com(reader, 6, first_audio, ref(cur), argtypes=(dw, vp))                 # GetCurrentMediaType
+        ch, rate = wintypes.UINT(), wintypes.UINT()
+        com(cur, 7, ref(MF_MT_AUDIO_NUM_CHANNELS), ref(ch), argtypes=(vp, vp))   # GetUINT32
+        com(cur, 7, ref(MF_MT_AUDIO_SAMPLES_PER_SECOND), ref(rate), argtypes=(vp, vp))
+        limit = int(max_seconds * rate.value) * ch.value * 2
+        chunks, total = [], 0
+        while total < limit:
+            idx, flags, stamp, sample = dw(), dw(), ctypes.c_longlong(), vp()
+            com(reader, 9, first_audio, 0, ref(idx), ref(flags), ref(stamp), ref(sample),    # ReadSample
+                argtypes=(dw, dw, vp, vp, vp, vp))
+            if sample.value:
+                buf, ptr, max_len, cur_len = vp(), vp(), dw(), dw()
+                com(sample, 41, ref(buf), argtypes=(vp,))                        # ConvertToContiguousBuffer
+                com(buf, 3, ref(ptr), ref(max_len), ref(cur_len), argtypes=(vp, vp, vp))      # Lock
+                chunks.append(ctypes.string_at(ptr, cur_len.value))
+                total += cur_len.value
+                com(buf, 4)                                                      # Unlock
+                com(buf, 2, restype=ctypes.c_ulong)
+                com(sample, 2, restype=ctypes.c_ulong)
+            if flags.value & 0x2:                                                # end of stream
+                break
+        return ch.value, rate.value, b"".join(chunks)
+    finally:
+        for obj in (cur, mtype, reader):
+            if obj.value:
+                com(obj, 2, restype=ctypes.c_ulong)
+        mfplat.MFShutdown()
+
+
+def load_sound(path, max_seconds=CUSTOM_MAX_SECONDS + 1):
+    """-> (channels, rate, 16-bit samples). Plain 16-bit WAV is read directly, everything else via Windows."""
+    data = None
+    if path.lower().endswith(".wav"):
+        try:
+            with wave.open(path, "rb") as w:
+                if w.getsampwidth() == 2:
+                    data = w.getnchannels(), w.getframerate(), w.readframes(w.getnframes())
+        except (wave.Error, EOFError):
+            data = None
+    if data is None:
+        data = mf_decode(path, max_seconds)
+    ch, rate, raw = data
+    if ch < 1 or rate < 1:
+        raise OSError("no audio found")
+    return ch, rate, array.array("h", raw[:len(raw) - len(raw) % (2 * ch)])
+
+
+def prepare_custom(ch, rate, samples):
+    """Your own sound: skip silence at the start, keep max 2 s, make it about as loud as the built-in ones."""
+    start = 0
+    for i in range(0, len(samples) - ch + 1, ch):
+        if max(abs(samples[i + c]) for c in range(ch)) > 100:          # louder than ~ -50 dB
+            start = max(0, i - ch * int(rate * 0.002))
+            break
+    samples = samples[start:start + int(CUSTOM_MAX_SECONDS * rate) * ch]
+    if not samples:
+        return samples, 1.0
+    rms = (sum(v * v for v in samples) / len(samples)) ** 0.5
+    if rms < 1:
+        return samples, 1.0
+    # same loudness as the built-in clicks (about -21.5 dB RMS), with a soft limiter instead of hard clipping
+    gain = max(0.25, min(8.0, 10 ** ((-21.5 - 20 * math.log10(rms / 32768)) / 20)))
+    knee = 0.7 * 32767
+    out = array.array("h", bytes(2 * len(samples)))
+    for i, v in enumerate(samples):
+        x = v * gain
+        a = abs(x)
+        if a > knee:
+            a = knee + (a - knee) / (1 + (a - knee) / (32767 - knee))
+            x = a if x > 0 else -a
+        out[i] = int(x)
+    return out, 1.0
+
+
+def make_variants(ch, samples, gain):
+    """A few slightly different pitches so fast typing doesn't sound robotic."""
     frames = len(samples) // ch
+    if PITCH_VARIATION <= 0:
+        steps = [0.0]
+    else:
+        steps = [-1, -0.5, 0, 0.5, 1] if frames < 20000 else [-1, 0, 1]
     variants = []
-    steps = [0.0] if PITCH_VARIATION <= 0 else [-1, -0.5, 0, 0.5, 1]
     for s in steps:
         speed = 1 + s * PITCH_VARIATION
-        gain = VOLUME * (0.92 + 0.08 * random.random())
+        g = gain * (0.92 + 0.08 * random.random())
         n = int(frames / speed)
         out = array.array("h", bytes(n * ch * 2))
         for i in range(n):
@@ -201,28 +480,48 @@ def load_variants():
             j2 = min(j + 1, frames - 1)
             for c in range(ch):
                 v = samples[j * ch + c] * (1 - f) + samples[j2 * ch + c] * f
-                out[i * ch + c] = max(-32768, min(32767, int(v * gain)))
+                out[i * ch + c] = max(-32768, min(32767, int(v * g)))
         variants.append(out.tobytes())
+    return variants
+
+
+def open_voices(path, volume):
+    ch, rate, samples = load_sound(path)
+    gain = volume
+    if os.path.dirname(os.path.abspath(path)) != os.path.abspath(SOUNDS_DIR):
+        samples, g = prepare_custom(ch, rate, samples)
+        gain *= g
+    if not samples:
+        raise OSError("the sound is silent or empty")
     fmt = WAVEFORMATEX(1, ch, rate, rate * ch * 2, ch * 2, 16, 0)
-    return fmt, variants
+    buffers = [ctypes.create_string_buffer(v, len(v)) for v in make_variants(ch, samples, gain)]
+    voices = []
+    for _ in range(VOICES):
+        h = wintypes.HANDLE()
+        if winmm.waveOutOpen(ctypes.byref(h), 0xFFFFFFFF, ctypes.byref(fmt), 0, 0, 0):
+            close_voices(voices)
+            raise OSError("could not open the audio output")
+        hdrs = []
+        for b in buffers:
+            hdr = WAVEHDR(ctypes.cast(b, ctypes.c_void_p), len(b.raw), 0, 0, 0, 0, None, 0)
+            winmm.waveOutPrepareHeader(h, ctypes.byref(hdr), ctypes.sizeof(WAVEHDR))
+            hdrs.append(hdr)
+        voices.append((h, hdrs))
+    return voices, buffers
 
 
-def audio_worker(ready):
+def close_voices(voices):
+    for h, hdrs in voices:
+        winmm.waveOutReset(h)
+        for hdr in hdrs:
+            winmm.waveOutUnprepareHeader(h, ctypes.byref(hdr), ctypes.sizeof(WAVEHDR))
+        winmm.waveOutClose(h)
+
+
+def audio_worker(ready, path, volume):
     """Several waveOut streams = clicks overlap cleanly and start instantly."""
     try:
-        fmt, variants = load_variants()
-        buffers = [ctypes.create_string_buffer(v, len(v)) for v in variants]
-        voices = []
-        for _ in range(VOICES):
-            h = wintypes.HANDLE()
-            if winmm.waveOutOpen(ctypes.byref(h), 0xFFFFFFFF, ctypes.byref(fmt), 0, 0, 0):
-                raise RuntimeError("could not open audio output")
-            hdrs = []
-            for b in buffers:
-                hdr = WAVEHDR(ctypes.cast(b, ctypes.c_void_p), len(b.raw), 0, 0, 0, 0, None, 0)
-                winmm.waveOutPrepareHeader(h, ctypes.byref(hdr), ctypes.sizeof(WAVEHDR))
-                hdrs.append(hdr)
-            voices.append((h, hdrs))
+        voices, buffers = open_voices(path, volume)
     except Exception as e:
         ready.append(e)
         return
@@ -230,22 +529,30 @@ def audio_worker(ready):
 
     voice, last = 0, -1
     while True:
-        if play_requests.get() is None:
+        req = play_requests.get()
+        if req is None:
             break
+        if isinstance(req, tuple):                       # switch to another sound
+            _, new_path, new_volume, preview = req
+            try:
+                new_voices, new_buffers = open_voices(new_path, new_volume)
+            except Exception as e:
+                ui_events.put(("sound_error", str(e)))
+                wake_overlay()
+                continue
+            close_voices(voices)
+            voices, buffers, voice, last = new_voices, new_buffers, 0, -1
+            if not preview:
+                continue
         h, hdrs = voices[voice]
         pick = random.randrange(len(hdrs))
-        if pick == last and len(hdrs) > 1:       # never the same variant twice in a row
+        if pick == last and len(hdrs) > 1:               # never the same variant twice in a row
             pick = (pick + 1) % len(hdrs)
         last = pick
         winmm.waveOutReset(h)
         winmm.waveOutWrite(h, ctypes.byref(hdrs[pick]), ctypes.sizeof(WAVEHDR))
         voice = (voice + 1) % VOICES
-
-    for h, hdrs in voices:
-        winmm.waveOutReset(h)
-        for hdr in hdrs:
-            winmm.waveOutUnprepareHeader(h, ctypes.byref(hdr), ctypes.sizeof(WAVEHDR))
-        winmm.waveOutClose(h)
+    close_voices(voices)
 
 
 # ---------------------------------------------------------------- input (raw input, never slows down the game)
@@ -658,6 +965,37 @@ user32.MessageBoxW.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR
 kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
 kernel32.CreateMutexW.restype = wintypes.HANDLE
 WM_TRAY = 0x8001
+
+
+class OPENFILENAMEW(ctypes.Structure):
+    _fields_ = [("lStructSize", wintypes.DWORD), ("hwndOwner", wintypes.HWND), ("hInstance", wintypes.HINSTANCE),
+                ("lpstrFilter", wintypes.LPCWSTR), ("lpstrCustomFilter", wintypes.LPWSTR),
+                ("nMaxCustFilter", wintypes.DWORD), ("nFilterIndex", wintypes.DWORD),
+                ("lpstrFile", wintypes.LPWSTR), ("nMaxFile", wintypes.DWORD), ("lpstrFileTitle", wintypes.LPWSTR),
+                ("nMaxFileTitle", wintypes.DWORD), ("lpstrInitialDir", wintypes.LPCWSTR),
+                ("lpstrTitle", wintypes.LPCWSTR), ("Flags", wintypes.DWORD), ("nFileOffset", wintypes.WORD),
+                ("nFileExtension", wintypes.WORD), ("lpstrDefExt", wintypes.LPCWSTR), ("lCustData", wintypes.LPARAM),
+                ("lpfnHook", ctypes.c_void_p), ("lpTemplateName", wintypes.LPCWSTR), ("pvReserved", ctypes.c_void_p),
+                ("dwReserved", wintypes.DWORD), ("FlagsEx", wintypes.DWORD)]
+
+
+def pick_sound_file():
+    """Standard Windows 'Open' dialog. Returns the chosen path or None."""
+    filt = f"{T('pick_filter')}\0*.wav;*.mp3;*.m4a;*.ogg;*.flac;*.wma;*.aac\0\0"
+    filt_buf = (ctypes.c_wchar * len(filt))(*filt)
+    file_buf = ctypes.create_unicode_buffer(1024)
+    ofn = OPENFILENAMEW()
+    ofn.lStructSize = ctypes.sizeof(OPENFILENAMEW)
+    ofn.lpstrFilter = ctypes.cast(filt_buf, wintypes.LPCWSTR)
+    ofn.lpstrFile = ctypes.cast(file_buf, wintypes.LPWSTR)
+    ofn.nMaxFile = 1024
+    ofn.lpstrTitle = T("pick_title")
+    ofn.Flags = 0x1000 | 0x800 | 0x8                         # FILEMUSTEXIST | PATHMUSTEXIST | NOCHANGEDIR
+    if ctypes.windll.comdlg32.GetOpenFileNameW(ctypes.byref(ofn)):
+        return file_buf.value
+    return None
+
+
 WM_TASKBARCREATED = user32.RegisterWindowMessageW("TaskbarCreated")
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
@@ -711,14 +1049,16 @@ class Overlay:
         self.ticks = 0
         self.fonts, self.bitmaps = [], []
         self.base_dc = self.back_dc = None
+        self.ripples = []            # (x, y, start time) of "ripple" effect rings
 
         hinst = kernel32.GetModuleHandleW(None)
         self._wndproc = WNDPROC(self.wndproc)
+        self.class_name = f"KeyboardSoundOverlay{id(self)}"
         wc = WNDCLASSW(0, self._wndproc, 0, 0, hinst, None,
-                       user32.LoadCursorW(None, ctypes.c_void_p(32646)), None, None, "KeyboardSoundOverlay")
+                       user32.LoadCursorW(None, ctypes.c_void_p(32646)), None, None, self.class_name)
         user32.RegisterClassW(ctypes.byref(wc))
         ex = 0x00080000 | 0x00000008 | 0x00000080 | 0x08000000 | 0x20   # LAYERED|TOPMOST|TOOLWINDOW|NOACTIVATE|TRANSPARENT
-        self.hwnd = user32.CreateWindowExW(ex, "KeyboardSoundOverlay", "Keyboard overlay", 0x80000000,
+        self.hwnd = user32.CreateWindowExW(ex, self.class_name, "Keyboard overlay", 0x80000000,
                                            0, 0, 10, 10, None, None, hinst, None)
         self.screen_dc = user32.GetDC(self.hwnd)
         self.build()
@@ -727,9 +1067,7 @@ class Overlay:
         user32.SetTimer(self.hwnd, 1, int(1000 / FPS), None)
         self.add_tray_icon()
         if not cfg["welcomed"]:
-            self.balloon(f"{APP_NAME} is running",
-                         "Right-click this icon for options.\n"
-                         "Ctrl+Alt+F11 = move/resize overlay, Ctrl+Alt+F12 = quit.")
+            self.balloon(T("running_title"), T("running_text"))
             cfg["welcomed"] = True
             save_settings(cfg)
 
@@ -764,21 +1102,47 @@ class Overlay:
 
     def show_tray_menu(self):
         global sound_enabled
-        cfg, menu, add = self.cfg, user32.CreatePopupMenu(), user32.AppendMenuW
+        cfg, add = self.cfg, user32.AppendMenuW
+        menu, snd, vol, fx, col = (user32.CreatePopupMenu() for _ in range(5))
         checked = lambda on: 0x8 if on else 0
-        add(menu, checked(self.editing), 101, "Move / resize overlay\tCtrl+Alt+F11")
-        add(menu, checked(cfg["visible"]), 102, "Show keyboard overlay")
-        add(menu, checked(cfg["sound"]), 103, "Click sound")
-        if FROZEN:
-            add(menu, checked(autostart_enabled()), 104, "Start with Windows")
+
+        add(snd, checked(cfg["sound"]), 103, T("sound_on"))
+        add(snd, 0x800, 0, None)
+        for i, (key, name) in enumerate(SOUNDS):
+            add(snd, checked(cfg["sound_choice"] == key), 200 + i, name)
+        if cfg.get("custom_sound") and os.path.exists(cfg["custom_sound"]):
+            name = os.path.basename(cfg.get("custom_name") or cfg["custom_sound"])
+            add(snd, checked(cfg["sound_choice"] == "custom"), 210, T("own").format(name))
+        add(snd, 0, 211, T("upload"))
+        add(snd, 0x800, 0, None)
+        volumes = (1.0, 0.75, 0.5, 0.25)
+        for i, v in enumerate(volumes):
+            add(vol, checked(abs(cfg["volume"] - v) < 0.01), 220 + i, f"{int(v * 100)} %")
+        add(snd, 0x10, vol, T("volume"))
+        for i, name in enumerate(EFFECTS):
+            add(fx, checked(cfg["effect"] == name), 300 + i, T("fx_" + name))
+        color_names = list(COLORS)
+        for i, name in enumerate(color_names):
+            add(col, checked(cfg["color"] == name), 400 + i, T("c_" + name))
+
+        add(menu, checked(self.editing), 101, T("move"))
+        add(menu, checked(cfg["visible"]), 102, T("show"))
         add(menu, 0x800, 0, None)
-        add(menu, 0, 105, "Quit\tCtrl+Alt+F12")
+        add(menu, 0x10, snd, T("sound"))
+        add(menu, 0x10, fx, T("effect"))
+        add(menu, 0x10, col, T("color"))
+        add(menu, 0x800, 0, None)
+        if FROZEN:
+            add(menu, checked(autostart_enabled()), 104, T("autostart"))
+        add(menu, 0, 106, T("help"))
+        add(menu, 0, 105, T("quit"))
         p = wintypes.POINT()
         user32.GetCursorPos(ctypes.byref(p))
         user32.SetForegroundWindow(self.hwnd)
         cmd = user32.TrackPopupMenu(menu, 0x100 | 0x2, p.x, p.y, 0, self.hwnd, None)
         user32.PostMessageW(self.hwnd, 0, 0, 0)
         user32.DestroyMenu(menu)
+
         if cmd == 101:
             self.toggle_edit()
         elif cmd == 102:
@@ -790,6 +1154,60 @@ class Overlay:
             set_autostart(not autostart_enabled())
         elif cmd == 105:
             user32.PostQuitMessage(0)
+        elif cmd == 106:
+            show_help()
+        elif 200 <= cmd < 200 + len(SOUNDS):
+            self.set_sound(SOUNDS[cmd - 200][0])
+        elif cmd == 210:
+            self.set_sound("custom")
+        elif cmd == 211:
+            self.upload_sound()
+        elif 220 <= cmd < 220 + len(volumes):
+            cfg["volume"] = volumes[cmd - 220]
+            self.set_sound(cfg["sound_choice"])
+        elif 300 <= cmd < 300 + len(EFFECTS):
+            cfg["effect"] = EFFECTS[cmd - 300]
+            self.effect_changed()
+        elif 400 <= cmd < 400 + len(color_names):
+            cfg["color"] = color_names[cmd - 400]
+            self.effect_changed()
+
+    # ---------- sound & effect settings
+    def set_sound(self, choice):
+        global sound_enabled
+        self.cfg["sound_choice"] = choice
+        self.cfg["sound"] = sound_enabled = True
+        save_settings(self.cfg)
+        play_requests.put(("load", sound_path(self.cfg), self.cfg["volume"], True))   # True = play it once
+
+    def upload_sound(self):
+        path = pick_sound_file()
+        if not path:
+            return
+        try:
+            os.makedirs(DATA_DIR, exist_ok=True)
+            ext = os.path.splitext(path)[1].lower() or ".wav"
+            target = os.path.join(DATA_DIR, "custom_sound" + ext)
+            for old in os.listdir(DATA_DIR):
+                if old.startswith("custom_sound") and os.path.join(DATA_DIR, old) != target:
+                    os.remove(os.path.join(DATA_DIR, old))
+            if os.path.abspath(path) != os.path.abspath(target):
+                shutil.copyfile(path, target)
+        except OSError as e:
+            user32.MessageBoxW(None, T("sound_error").format(e), APP_NAME, 0x30)
+            return
+        self.cfg["custom_sound"], self.cfg["custom_name"] = target, os.path.basename(path)
+        self.set_sound("custom")
+
+    def sound_failed(self, message):
+        user32.MessageBoxW(None, T("sound_error").format(message), APP_NAME, 0x30)
+        if self.cfg["sound_choice"] == "custom":
+            self.set_sound(SOUNDS[0][0])
+
+    def effect_changed(self):
+        self.ripples.clear()
+        save_settings(self.cfg)
+        self.render(force_base=True)
 
     # ---------- building
     def build(self):
@@ -822,7 +1240,8 @@ class Overlay:
             key["rect"] = wintypes.RECT(int(cx - half_w), int(cy - u / 2), int(cx + half_w), int(cy + u / 2))
             key["font"] = 0 if len(key["label"]) <= 2 else 1
             key["text"] = key["label"]
-            key["hue_pos"] = (cx / self.w) * RGB_SPREAD
+            key["xfrac"] = cx / self.w
+            key["cpx"], key["cpy"] = cx, cy
             if not key.get("body"):
                 self.by_id.setdefault(key["id"], []).append(i)
 
@@ -869,9 +1288,43 @@ class Overlay:
         user32.SetWindowPos(self.hwnd, wintypes.HWND(-1), x, y, self.w, self.h, 0x10)   # TOPMOST, NOACTIVATE
 
     # ---------- drawing
+    def glow_color(self, xfrac, now):
+        """Full-brightness color of a key at this horizontal position (0..1)."""
+        c = COLORS.get(self.cfg["color"])
+        if c is None:
+            moving = self.cfg["effect"] == "wave"
+            return colorsys.hsv_to_rgb((xfrac * RGB_SPREAD - (now * RGB_SPEED if moving else 0)) % 1.0, 1.0, 1.0)
+        return c
+
+    def base_color(self, xfrac, now):
+        """Color of a key that is not pressed (before the idle dimming)."""
+        c = self.glow_color(xfrac, now)
+        if self.cfg["effect"] == "wave" and COLORS.get(self.cfg["color"]) is not None:
+            k = 0.3 + 0.7 * (0.5 + 0.5 * math.sin(2 * math.pi * (xfrac * RGB_SPREAD - now * RGB_SPEED)))
+            c = (c[0] * k, c[1] * k, c[2] * k)
+        return c
+
+    def idle_level(self, now):
+        eff = self.cfg["effect"]
+        if eff == "breathe":
+            return 0.12 + 0.88 * (0.5 - 0.5 * math.cos(2 * math.pi * now / BREATHE_PERIOD))
+        if eff in ("ripple", "reactive"):
+            return 0.25
+        return 1.0
+
+    def animated(self):
+        eff = self.cfg["effect"]
+        return eff == "breathe" or (eff == "wave" and RGB_SPEED)
+
+    def add_ripple(self, kid):
+        idx = self.by_id.get(kid)
+        if idx:
+            key = self.keys[idx[0]]
+            self.ripples = self.ripples[-11:] + [(key["cpx"], key["cpy"], time.monotonic())]
+
     def key_colors(self, key, now, glow):
-        color = colorsys.hsv_to_rgb((key["hue_pos"] - now * RGB_SPEED) % 1.0, 1.0, 1.0)
-        idle = mix(DARK, color, IDLE_BRIGHTNESS)
+        color = self.glow_color(key["xfrac"], now)
+        idle = mix(DARK, color, IDLE_BRIGHTNESS * self.idle_level(now))
         if not glow:
             return cref(DARK), cref(idle), cref(mix(color, WHITE, 0.3))
         return (cref(mix(DARK, mix(color, WHITE, 0.2), glow)), cref(mix(idle, WHITE, glow)),
@@ -928,7 +1381,7 @@ class Overlay:
     def rainbow(self, dc, now, lift, brightness):
         n = GRADIENT_STEPS
         for i in range(n + 1):
-            r, g, b = mix(colorsys.hsv_to_rgb((i / n * RGB_SPREAD - now * RGB_SPEED) % 1.0, 1.0, 1.0), WHITE, lift)
+            r, g, b = mix(self.base_color(i / n, now), WHITE, lift)
             col = (int(r * brightness * 0xFF00), int(g * brightness * 0xFF00), int(b * brightness * 0xFF00))
             x = int(self.w * i / n)
             for j, y in ((2 * i - 1, self.h), (2 * i, 0)):
@@ -940,7 +1393,9 @@ class Overlay:
     def render_base(self, now):
         w, h = self.w, self.h
         gdi32.BitBlt(self.base_dc, 0, 0, w, h, self.static_dc, 0, 0, SRCCOPY)
-        for mask, lift, brightness in ((self.outline_dc, 0.0, IDLE_BRIGHTNESS), (self.text_dc, 0.3, 1.0)):
+        level = self.idle_level(now)
+        for mask, lift, brightness in ((self.outline_dc, 0.0, IDLE_BRIGHTNESS * level),
+                                       (self.text_dc, 0.3, max(level, 0.35))):
             self.rainbow(self.tmp_dc, now, lift, brightness)
             gdi32.BitBlt(self.tmp_dc, 0, 0, w, h, mask, 0, 0, SRCAND)          # keep only outline / text pixels
             gdi32.BitBlt(self.base_dc, 0, 0, w, h, self.tmp_dc, 0, 0, SRCPAINT)  # add them onto the keys
@@ -948,24 +1403,40 @@ class Overlay:
     def render(self, force_base=False):
         now = time.monotonic()
         base_changed = False
-        if force_base or (RGB_SPEED and now - self.last_rgb >= 1.0 / RGB_FPS):
+        if force_base or (self.animated() and now - self.last_rgb >= 1.0 / RGB_FPS):
             self.render_base(now)
             self.last_rgb = now
             base_changed = True
-        if not (base_changed or self.active or self.dirty or self.editing):
+        if not (base_changed or self.active or self.ripples or self.dirty or self.editing):
             return
         self.dirty = False
         dc = self.back_dc
         gdi32.BitBlt(dc, 0, 0, self.w, self.h, self.base_dc, 0, 0, SRCCOPY)
+        glows = {}
         for i in list(self.active):
-            key = self.keys[i]
-            kid = key["id"]
+            kid = self.keys[i]["id"]
             glow = 1.0 if kid in self.held else max(0.0, 1.0 - (now - self.released_at.get(kid, -99.0)) / GLOW_TIME)
             if glow <= 0:
                 self.active.discard(i)
                 self.dirty = True        # draw once more without it
                 continue
-            self.draw_key(dc, key, self.key_colors(key, now, glow))
+            glows[i] = glow
+        if self.ripples:                 # rings of light travelling out from pressed keys
+            self.ripples = [r for r in self.ripples if now - r[2] < RIPPLE_LIFE]
+            band, speed = 1.3 * self.u, RIPPLE_SPEED * self.u
+            for rx, ry, t0 in self.ripples:
+                age = now - t0
+                radius, fade = age * speed, 1.0 - age / RIPPLE_LIFE
+                for i, key in enumerate(self.keys):
+                    if key.get("body"):
+                        continue
+                    x = 1.0 - abs(math.hypot(key["cpx"] - rx, key["cpy"] - ry) - radius) / band
+                    if x > 0 and 0.85 * x * fade > glows.get(i, 0.0):
+                        glows[i] = 0.85 * x * fade
+            if not self.ripples:
+                self.dirty = True
+        for i, glow in glows.items():
+            self.draw_key(dc, self.keys[i], self.key_colors(self.keys[i], now, glow))
         if self.editing:
             self.draw_edit_hint(dc)
         gdi32.BitBlt(self.screen_dc, 0, 0, self.w, self.h, dc, 0, 0, SRCCOPY)
@@ -975,7 +1446,7 @@ class Overlay:
         gdi32.SetDCPenColor(dc, self.ACCENT)
         gdi32.Polygon(dc, *self.plate)
         gdi32.SelectObject(dc, gdi32.GetStockObject(18))
-        text = "Drag to move  •  Scroll to resize  •  Right-click: options  •  Ctrl+Alt+F11: done"
+        text = T("edit_hint")
         r = wintypes.RECT(int(self.w * 0.08), int(self.h / 2 - self.u * 0.45),
                           int(self.w * 0.92), int(self.h / 2 + self.u * 0.45))
         gdi32.SetDCBrushColor(dc, 0)
@@ -1028,10 +1499,16 @@ class Overlay:
                 if kind == "down":
                     self.held.add(val)
                     self.active.update(self.by_id.get(val, ()))
+                    if self.cfg["effect"] == "ripple":
+                        self.add_ripple(val)
                 elif kind in ("up", "tap"):
                     self.held.discard(val)
                     self.released_at[val] = time.monotonic()
                     self.active.update(self.by_id.get(val, ()))
+                    if kind == "tap" and self.cfg["effect"] == "ripple":
+                        self.add_ripple(val)
+                elif kind == "sound_error":
+                    self.sound_failed(val)
                 elif kind == "wheel":
                     self.on_wheel(val)
                 elif kind == "edit":
@@ -1102,24 +1579,25 @@ class Overlay:
         cfg = self.cfg
         menu, opacity, corners = user32.CreatePopupMenu(), user32.CreatePopupMenu(), user32.CreatePopupMenu()
         add = user32.AppendMenuW
-        add(menu, 0, 1, ("Hide" if cfg["numpad"] else "Show") + " numpad")
-        add(menu, 0, 2, ("Hide" if cfg["mouse"] else "Show") + " mouse")
-        add(menu, 0, 3, "Mouse on the " + ("left" if cfg["mouse_side"] == "right" else "right"))
-        add(menu, 0, 6, ("Hide" if cfg["background"] else "Show") + " background")
+        add(menu, 0, 1, T("numpad_hide" if cfg["numpad"] else "numpad_show"))
+        add(menu, 0, 2, T("mouse_hide" if cfg["mouse"] else "mouse_show"))
+        add(menu, 0, 3, T("mouse_left" if cfg["mouse_side"] == "right" else "mouse_right"))
+        add(menu, 0, 6, T("bg_hide" if cfg["background"] else "bg_show"))
         add(menu, 0x800, 0, None)
-        add(menu, 0, 4, "Bigger")
-        add(menu, 0, 5, "Smaller")
+        add(menu, 0, 4, T("bigger"))
+        add(menu, 0, 5, T("smaller"))
         levels = (1.0, 0.9, 0.75, 0.6, 0.45)
         for i, v in enumerate(levels):
             add(opacity, 0x8 if abs(cfg["opacity"] - v) < 0.01 else 0, 10 + i, f"{int(v * 100)} %")
-        add(menu, 0x10, opacity, "Opacity")
+        add(menu, 0x10, opacity, T("opacity"))
         names = ("top-left", "top-right", "bottom-left", "bottom-right")
         for i, c in enumerate(names):
-            add(corners, 0, 20 + i, c.replace("-", " "))
-        add(menu, 0x10, corners, "Snap to corner")
+            add(corners, 0, 20 + i, T(c))
+        add(menu, 0x10, corners, T("corner"))
         add(menu, 0x800, 0, None)
-        add(menu, 0, 30, "Done (lock position)")
-        add(menu, 0, 31, "Quit")
+        add(menu, 0, 30, T("done"))
+        add(menu, 0, 32, T("help"))
+        add(menu, 0, 31, T("quit_plain"))
         p = wintypes.POINT()
         user32.GetCursorPos(ctypes.byref(p))
         user32.SetForegroundWindow(self.hwnd)
@@ -1146,6 +1624,9 @@ class Overlay:
         elif cmd == 30:
             self.toggle_edit()
             return
+        elif cmd == 32:
+            show_help()
+            return
         elif cmd == 31:
             user32.PostQuitMessage(0)
             return
@@ -1160,6 +1641,8 @@ class Overlay:
         shell32.Shell_NotifyIconW(2, ctypes.byref(self.tray_data()))   # NIM_DELETE
         user32.ReleaseDC(self.hwnd, self.screen_dc)
         user32.DestroyWindow(self.hwnd)
+        ctypes.windll.user32.UnregisterClassW(ctypes.c_wchar_p(self.class_name),
+                                              ctypes.c_void_p(kernel32.GetModuleHandleW(None)))
 
 
 # ---------------------------------------------------------------- main
@@ -1178,15 +1661,18 @@ def error_box(text):
     user32.MessageBoxW(None, text, APP_NAME, 0x10)
 
 
+def show_help():
+    user32.MessageBoxW(None, T("help_text"), T("help_title"), 0x40)
+
+
 def main():
     global overlay_hwnd, sound_enabled
     mutex = kernel32.CreateMutexW(None, False, "KeyboardSound_SingleInstance")
     if ctypes.get_last_error() == 183:                   # ERROR_ALREADY_EXISTS
-        user32.MessageBoxW(None, f"{APP_NAME} is already running.\nLook for its icon in the tray "
-                                 "(bottom right, near the clock).", APP_NAME, 0x40)
+        user32.MessageBoxW(None, T("already"), APP_NAME, 0x40)
         return
-    if not os.path.exists(SOUND_FILE):
-        error_box(f"Sound file not found:\n{SOUND_FILE}")
+    if not os.path.isdir(SOUNDS_DIR):
+        error_box(f"Sound files not found:\n{SOUNDS_DIR}")
         return
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(2)   # crisp overlay on scaled displays
@@ -1196,7 +1682,11 @@ def main():
 
     cfg = load_settings()
     sound_enabled = cfg["sound"]
-    audio = start(audio_worker)
+    try:
+        audio = start(audio_worker, sound_path(cfg), cfg["volume"])
+    except Exception:                                    # e.g. own sound deleted -> use the default one
+        cfg["sound_choice"] = SOUNDS[0][0]
+        audio = start(audio_worker, sound_path(cfg), cfg["volume"])
     overlay = Overlay(cfg)
     overlay_hwnd = overlay.hwnd
     start(input_loop, True)

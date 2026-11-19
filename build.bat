@@ -10,7 +10,7 @@ if not exist icon.ico python make_icon.py
 
 .build-venv\Scripts\pyinstaller --noconfirm --clean --onefile --windowed ^
     --name KeyboardSound --icon icon.ico ^
-    --add-data "click_loud.wav;." --add-data "icon.ico;." ^
+    --add-data "sounds;sounds" --add-data "icon.ico;." ^
     keyboard_sound.py || goto :error
 
 echo.
