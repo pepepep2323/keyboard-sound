@@ -1,0 +1,12 @@
+# build output
+.build-venv/
+build/
+dist/
+release/
+*.spec
+__pycache__/
+
+# personal / unrelated
+overlay_settings.json
+click.mp3
+rocket-champions/
