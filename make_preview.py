@@ -1,11 +1,13 @@
-"""Renders the overlay pictures for the web page (docs/*.png) with the app's own drawing code.
+"""Renders the widget pictures for the web page (docs/*.png) with the app's own drawing code.
 Run: python make_preview.py"""
 
 import ctypes
 import os
 import struct
+import tempfile
 import time
 import zlib
+from collections import deque
 
 import keyboard_sound as ks
 
@@ -21,71 +23,109 @@ def png_rgba(width, height, rows):
             + chunk(b"IEND", b""))
 
 
-def snapshot(ov, path, bitmap=None):
-    w, h = ov.w, ov.h
-    buf = ctypes.create_string_buffer(w * h * 4)
-    ctypes.windll.gdi32.GetBitmapBits(ctypes.c_void_p(bitmap or ov.bitmaps[1][1]), len(buf), buf)
-    raw = bytearray()
-    data = buf.raw
-    for y in range(h):
-        raw.append(0)
-        row = data[y * w * 4:(y + 1) * w * 4]
-        for x in range(0, w * 4, 4):
-            b, g, r = row[x], row[x + 1], row[x + 2]
-            raw += bytes((r, g, b, 0 if (r, g, b) == (1, 2, 3) else 255))
+def snapshot(w, name):
+    """Saves a widget's current picture as a PNG with transparency."""
+    rows = bytearray()
+    if w.argb:
+        data = ctypes.string_at(w.canvas.bits, w.w * w.h * 4)
+        for y in range(w.h):
+            rows.append(0)
+            line = data[y * w.w * 4:(y + 1) * w.w * 4]
+            for x in range(0, w.w * 4, 4):
+                b, g, r, a = line[x], line[x + 1], line[x + 2], line[x + 3]
+                if a:
+                    r, g, b = min(255, r * 255 // a), min(255, g * 255 // a), min(255, b * 255 // a)
+                rows += bytes((r, g, b, a))
+    else:
+        buf = ctypes.create_string_buffer(w.w * w.h * 4)
+        ctypes.windll.gdi32.GetBitmapBits(ctypes.c_void_p(w.buf_bmp), len(buf), buf)
+        for y in range(w.h):
+            rows.append(0)
+            line = buf.raw[y * w.w * 4:(y + 1) * w.w * 4]
+            for x in range(0, w.w * 4, 4):
+                b, g, r = line[x], line[x + 1], line[x + 2]
+                rows += bytes((r, g, b, 0 if (r, g, b) == (1, 2, 3) else 255))
+    path = os.path.join(HERE, "docs", name)
     with open(path, "wb") as f:
-        f.write(png_rgba(w, h, bytes(raw)))
-    print(f"{path} ({w}x{h})")
+        f.write(png_rgba(w.w, w.h, bytes(rows)))
+    print(f"{path} ({w.w}x{w.h})")
 
 
-def render(name, effect="wave", color="rainbow", held=(), released=(), ripple_from=None, ripple_age=0.3,
-           breathe_phase=None):
-    cfg = dict(ks.DEFAULTS, key_size=int(40 / (ctypes.windll.user32.GetDpiForSystem() / 96)),
-               x=-4000, y=-4000, welcomed=True, effect=effect, color=color)
-    ov = ks.Overlay(cfg)
+def main():
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    ctypes.windll.ole32.CoInitializeEx(None, 2)
+    ks.DATA_DIR = tempfile.mkdtemp()
+    ks.SETTINGS_FILE = os.path.join(ks.DATA_DIR, "overlay_settings.json")
+    cfg = ks.load_settings()
+    size = int(40 / (ctypes.windll.user32.GetDpiForSystem() / 96))
+    for i, w in enumerate(cfg["widgets"].values()):
+        w.update(size=size, x=-6000 + i * 10, y=-6000)
+    cfg["welcomed"] = True
+    cfg["widgets"]["text1"] = {"type": "text", "x": -6000, "y": -6000, "size": size, "visible": True,
+                               "text": "GG WP!", "color": "effect", "bold": True, "background": False}
+    app = ks.App(cfg)
+    S, V, M = ks.S, ks.V, ks.M
+    kb, mouse = app.widgets["keyboard"], app.widgets["mouse"]
     now = time.monotonic()
-    if breathe_phase is not None:                 # freeze the breathing at a nice moment
-        ov.idle_level = lambda _now, p=breathe_phase: p
-    for kid in held:
-        ov.held.add(kid)
-        ov.active.update(ov.by_id.get(kid, ()))
-    for kid, ago in released:
-        ov.released_at[kid] = now - ago
-        ov.active.update(ov.by_id.get(kid, ()))
-    if ripple_from is not None:
-        idx = ov.by_id[ripple_from][0]
-        key = ov.keys[idx]
-        ov.ripples = [(key["cpx"], key["cpy"], now - ripple_age)]
-        ov.released_at[ripple_from] = now - ripple_age
-        ov.active.update(ov.by_id[ripple_from])
-    ov.render(force_base=True)
-    snapshot(ov, os.path.join(HERE, "docs", name))
-    ov.close()
 
+    def press(widget, held=(), released=()):
+        widget.held, widget.released_at, widget.active, widget.ripples = set(held), {}, set(), []
+        for kid in held:
+            widget.active.update(widget.by_id.get(kid, ()))
+        for kid, ago in released:
+            widget.released_at[kid] = now - ago
+            widget.active.update(widget.by_id.get(kid, ()))
 
-def render_player(name):
-    """The music player panel with a made-up song (cover = the app icon)."""
-    cfg = dict(ks.DEFAULTS, key_size=int(40 / (ctypes.windll.user32.GetDpiForSystem() / 96)),
-               x=-4000, y=-4000, welcomed=True)
-    ov = ks.Overlay(cfg)
+    gaming = dict(held=(S(0x11), S(0x1E), V(0xA0)), released=((S(0x39), 0.15),))
+    for name, effect, color in (("fx-wave.png", "wave", "rainbow"), ("fx-static.png", "static", "cyan"),
+                                ("fx-breathe.png", "breathe", "purple"), ("fx-ripple.png", "ripple", "rainbow"),
+                                ("fx-reactive.png", "reactive", "red")):
+        cfg["effect"], cfg["color"] = effect, color
+        press(kb, **({} if effect == "ripple" else gaming))
+        if effect == "ripple":
+            g = kb.keys[kb.by_id[S(0x22)][0]]
+            kb.ripples = [(g["cpx"], g["cpy"], time.monotonic() - 0.35)]
+            kb.released_at[S(0x22)] = time.monotonic() - 0.35
+            kb.active.update(kb.by_id[S(0x22)])
+        if effect == "breathe":
+            app.idle_level = lambda _now: 0.6
+        kb.redraw()
+        snapshot(kb, name)
+        app.idle_level = ks.App.idle_level.__get__(app)
+    cfg["effect"], cfg["color"] = "wave", "rainbow"
+    press(kb, **gaming)
+    kb.redraw()
+    snapshot(kb, "preview.png")
+    press(mouse, held=(M("L"),), released=((M("WU"), 0.2),))
+    mouse.redraw()
+    snapshot(mouse, "mouse.png")
+
     with open(os.path.join(HERE, "docs", "icon.png"), "rb") as f:
         cover = f.read()
-    ov.widget.set_state({"app": "Spotify.exe", "title": "Your Favourite Song", "artist": "Some Artist",
-                         "playing": True, "pos": 83.0, "end": 215.0, "t": time.monotonic(), "cover": cover,
-                         "cover_key": "demo", "can_seek": True})
-    ov.widget.draw()
-    snapshot(ov.widget, os.path.join(HERE, "docs", name), ov.widget.bmp)
-    ov.close()
+    player = app.player
+    player.set_state({"app": "Spotify.exe", "title": "Your Favourite Song", "artist": "Some Artist",
+                      "playing": True, "pos": 83.0, "end": 215.0, "t": time.monotonic(), "cover": cover,
+                      "cover_key": "demo", "can_seek": True, "volume": 0.7, "muted": False, "ad": False})
+    player.redraw()
+    snapshot(player, "player.png")
+
+    st = app.stats
+    st.data.update(keys=12431, clicks=3209, best_cps=14, cat=48210)
+    t = time.monotonic()
+    st.clicks = deque([t - 0.1 * i for i in range(9)])
+    st.actions = deque([t - 0.25 * i for i in range(214)])
+    st.started = t - 120
+    app.widgets["stats"].redraw()
+    snapshot(app.widgets["stats"], "stats.png")
+
+    cat = app.widgets["cat"]
+    cat.paw_until["left"] = time.monotonic() + 5
+    cat.redraw()
+    snapshot(cat, "cat.png")
+    app.widgets["text1"].redraw()
+    snapshot(app.widgets["text1"], "text.png")
+    app.close()
 
 
 if __name__ == "__main__":
-    ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    S, V, M = ks.S, ks.V, ks.M
-    gaming = dict(held=(S(0x11), S(0x1E), V(0xA0), M("L")), released=((S(0x39), 0.15), (M("WU"), 0.25)))
-    render("preview.png", **gaming)
-    render("fx-wave.png", **gaming)
-    render("fx-static.png", color="cyan", **gaming)
-    render("fx-breathe.png", effect="breathe", color="purple", breathe_phase=0.6, **gaming)
-    render("fx-ripple.png", effect="ripple", ripple_from=S(0x22), ripple_age=0.35)
-    render("fx-reactive.png", effect="reactive", color="red", **gaming)
-    render_player("player.png")
+    main()

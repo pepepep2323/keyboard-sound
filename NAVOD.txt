@@ -17,54 +17,87 @@ MENU
   Pravý klik na ikonu klávesnice vpravo dole u hodin.
   (Když ji nevidíš, klikni na šipku ^ vedle hodin.)
   V menu najdeš:
-    - Přesunout / změnit velikost
-    - Zobrazit klávesnici (vypnutím ji skryješ, zvuk hraje dál)
-    - Zvuk: zapnout/vypnout, Creamy 1 / 2 / 3, vlastní zvuk, hlasitost
+    - Přesunout / změnit velikost (úpravy widgetů)
+    - Zobrazit widgety (vypnutím skryješ všechno, zvuk hraje dál)
+    - Widgety: zapnout / vypnout každý zvlášť, přidat text nebo obrázek,
+      rozmístit do rohu
+    - Zvuk: zapnout/vypnout, Creamy 1 / 2 / 3, vlastní zvuk, hlasitost kliků
     - Efekt: duhová vlna, statické světlo, dýchání,
              vlna od klávesy, jen stisknuté klávesy
     - Barva: duha nebo jedna barva
-    - Hudba: přehrávač, ovládání skladeb, změna zkratek
-    - Spouštět s Windows
-    - Nápověda
-    - Ukončit
+    - Hudba: ovládání skladeb, hlasitost, reklamy, změna zkratek
+    - Spouštět s Windows, Nápověda, Ukončit
+
+WIDGETY
+  Klávesnice, Myš, Přehrávač, Statistiky, Kočka, Text, Obrázek.
+  Každý je samostatný - můžeš ho zvlášť přesunout, zvětšit nebo skrýt.
 
 PŘESUNUTÍ A VELIKOST
   Ctrl+Alt+F11 (nebo menu > Přesunout / změnit velikost)
-    - táhni klávesnici myší
-    - kolečkem myši měníš velikost
-    - pravý klik na klávesnici: numpad, myš, pozadí,
-      průhlednost, roh obrazovky
-    - znovu Ctrl+Alt+F11 = hotovo (pozice se uloží)
+    - táhni widget myší
+    - kolečko myši nad widgetem = jeho velikost
+    - pravý klik na widget = jeho možnosti:
+        klávesnice: numpad, pozadí
+        kočka: barva, vynulovat počítadlo
+        statistiky: vynulovat dnešek / rekord
+        text: upravit text, barva, tučně, pozadí
+        obrázek: změnit obrázek
+        u všech: větší, menší, průhlednost, skrýt, (odstranit)
+    - znovu Ctrl+Alt+F11 = hotovo (všechno se uloží)
+
+TEXT A OBRÁZEK
+  Menu > Widgety > Přidat text... / Přidat obrázek...
+  Obrázek může být png, jpg, gif (i animovaný) nebo bmp.
+  Můžeš jich přidat kolik chceš.
+
+STATISTIKY
+  CPS = kliky myší za sekundu (+ tvůj rekord)
+  APM = akce (klávesy + kliky) za minutu
+  Dole je, kolik kláves a kliků jsi dnes zmáčkl.
+
+KOČKA
+  Levou tlapkou ťuká do klávesnice, když píšeš, pravou do myši,
+  když klikáš. Nahoře počítá všechny stisky.
 
 VLASTNÍ ZVUK
   Menu > Zvuk > Nahrát vlastní zvuk...
   Podporované soubory: wav, mp3, m4a, ogg, flac, wma.
   Použijí se první 2 sekundy, ticho na začátku se uřízne
   a hlasitost se srovná s ostatními zvuky.
+  Hlasitost kliků: menu > Zvuk > Hlasitost kliků (10 - 100 %).
 
 HUDBA (SPOTIFY, YOUTUBE, ...)
   Funguje se Spotify (aplikace i web), YouTube a dalšími přehrávači.
-  Ctrl+Alt+Šipka dolů        přehrát / pauza
-  Ctrl+Alt+Šipka vpravo      další skladba
-  Ctrl+Alt+Šipka vlevo       předchozí skladba
-  Ctrl+Alt+Shift+Šipka vpravo   posunout o 10 s dopředu
-  Ctrl+Alt+Shift+Šipka vlevo    posunout o 10 s dozadu
-  (když šipku se Shiftem držíš, posouvá se dál)
+  Ctrl+Alt+Šipka dolů             přehrát / pauza
+  Ctrl+Alt+Šipka vpravo           další skladba
+  Ctrl+Alt+Šipka vlevo            předchozí skladba
+  Ctrl+Alt+Shift+Šipka vpravo     posunout o 10 s dopředu
+  Ctrl+Alt+Shift+Šipka vlevo      posunout o 10 s dozadu
+  Ctrl+Alt+Shift+Šipka nahoru     hlasitost hudby +
+  Ctrl+Alt+Shift+Šipka dolů       hlasitost hudby -
+  (podržením se posouvá / mění dál)
 
-  Nad klávesnicí je přehrávač s obalem alba, názvem a časem:
-    - klikni na tlačítka předchozí / pauza / další
-    - klikni na lištu a skladba skočí na to místo
+  Hlasitost hudby mění jen přehrávač (třeba Spotify), hra má hlasitost dál stejnou.
+  Přehrávač ukazuje obal alba, název, čas a hlasitost:
+    - tlačítka předchozí / pauza / další
+    - klik na lištu = skok na to místo ve skladbě
+    - kolečko myši nad přehrávačem = hlasitost hudby
+    - klik na reproduktor = ztlumit / zapnout
   Zkratky změníš: menu > Hudba > Změnit zkratky > vyber akci
   a stiskni novou zkratku (s Ctrl / Alt / Shift, nebo F-klávesu).
-  Krok posunu (5 / 10 / 15 / 30 s): menu > Hudba > Krok posunu.
-  Přehrávač skryješ: menu > Hudba > Zobrazit přehrávač.
+
+REKLAMY VE SPOTIFY
+  Reklamy ve Spotify Free nejde přeskočit (Spotify to nedovolí žádné aplikaci).
+  Keyboard Sound je proto ztlumí a po reklamě zase pustí zvuk.
+  Vypnout: menu > Hudba > Ztlumit reklamy (Spotify).
 
 VYPNUTÍ
   Ctrl+Alt+F12, nebo menu > Ukončit.
 
 HRY
-  Klávesnice je vidět jen v režimu "okno bez okraje" (borderless /
+  Widgety jsou vidět jen v režimu "okno bez okraje" (borderless /
   windowed fullscreen), ne v exkluzivní celé obrazovce.
+  Zkratky na hudbu fungují vždy.
 
 Nastavení se ukládá do %APPDATA%\KeyboardSound.
 
@@ -83,53 +116,85 @@ MENU
   Right-click the keyboard icon near the clock.
   (If you can't see it, click the ^ arrow next to the clock.)
   The menu has:
-    - Move / resize
-    - Show keyboard (untick to hide it, the sound keeps playing)
-    - Sound: on/off, Creamy 1 / 2 / 3, your own sound, volume
+    - Move / resize (edit the widgets)
+    - Show widgets (untick to hide everything, the sound keeps playing)
+    - Widgets: turn each one on / off, add a text or an image,
+      arrange them in a corner
+    - Sound: on/off, Creamy 1 / 2 / 3, your own sound, click volume
     - Effect: rainbow wave, static light, breathing,
               ripple from key, only pressed keys
     - Color: rainbow or a single color
-    - Music: player, track controls, change shortcuts
-    - Start with Windows
-    - Help
-    - Quit
+    - Music: track controls, volume, ads, change shortcuts
+    - Start with Windows, Help, Quit
+
+WIDGETS
+  Keyboard, Mouse, Player, Stats, Cat, Text, Image.
+  Each one is separate - move, resize or hide it on its own.
 
 MOVE AND RESIZE
   Ctrl+Alt+F11 (or menu > Move / resize)
-    - drag the keyboard with the mouse
-    - scroll the mouse wheel to resize
-    - right-click the keyboard: numpad, mouse, background,
-      opacity, screen corner
-    - Ctrl+Alt+F11 again = done (the position is saved)
+    - drag a widget with the mouse
+    - mouse wheel over a widget = its size
+    - right-click a widget = its options:
+        keyboard: numpad, background
+        cat: color, reset counter
+        stats: reset today / record
+        text: edit text, color, bold, background
+        image: change image
+        all: bigger, smaller, opacity, hide, (remove)
+    - Ctrl+Alt+F11 again = done (everything is saved)
+
+TEXT AND IMAGE
+  Menu > Widgets > Add text... / Add image...
+  Images can be png, jpg, gif (animated too) or bmp.
+  Add as many as you like.
+
+STATS
+  CPS = mouse clicks per second (+ your record)
+  APM = actions (keys + clicks) per minute
+  Below: how many keys and clicks you pressed today.
+
+CAT
+  Taps the keyboard with its left paw when you type and the mouse
+  with its right paw when you click. Counts every press at the top.
 
 YOUR OWN SOUND
   Menu > Sound > Load your own sound...
   Supported files: wav, mp3, m4a, ogg, flac, wma.
   The first 2 seconds are used, silence at the start is cut off
   and the volume is matched to the other sounds.
+  Click volume: menu > Sound > Click volume (10 - 100 %).
 
 MUSIC (SPOTIFY, YOUTUBE, ...)
   Works with Spotify (app and web), YouTube and other players.
-  Ctrl+Alt+Down arrow         play / pause
-  Ctrl+Alt+Right arrow        next track
-  Ctrl+Alt+Left arrow         previous track
-  Ctrl+Alt+Shift+Right arrow  seek 10 s forward
-  Ctrl+Alt+Shift+Left arrow   seek 10 s back
-  (hold the Shift+arrow combo to keep seeking)
+  Ctrl+Alt+Down arrow           play / pause
+  Ctrl+Alt+Right arrow          next track
+  Ctrl+Alt+Left arrow           previous track
+  Ctrl+Alt+Shift+Right arrow    seek 10 s forward
+  Ctrl+Alt+Shift+Left arrow     seek 10 s back
+  Ctrl+Alt+Shift+Up arrow       music volume +
+  Ctrl+Alt+Shift+Down arrow     music volume -
+  (hold to keep going)
 
-  There's a player above the keyboard with the album cover, title and time:
-    - click the previous / pause / next buttons
-    - click the bar to jump to that point of the song
+  Music volume only changes the player (e.g. Spotify), your game stays as loud as it was.
+  The player shows the album cover, title, time and volume:
+    - previous / pause / next buttons
+    - click the bar = jump to that point of the song
+    - mouse wheel over the player = music volume
+    - click the speaker = mute / unmute
   Change the shortcuts: menu > Music > Change shortcuts > pick an action
   and press the new shortcut (with Ctrl / Alt / Shift, or an F-key).
-  Seek step (5 / 10 / 15 / 30 s): menu > Music > Seek step.
-  Hide the player: menu > Music > Show player.
+
+SPOTIFY ADS
+  Spotify Free ads can't be skipped (Spotify doesn't allow it for any app).
+  Keyboard Sound mutes them instead and turns the sound back on after the ad.
+  Turn off: menu > Music > Mute ads (Spotify).
 
 QUIT
   Ctrl+Alt+F12, or menu > Quit.
 
 GAMES
-  The keyboard is only visible in borderless / windowed
-  fullscreen, not in exclusive fullscreen.
+  Widgets are only visible in borderless / windowed
+  fullscreen, not in exclusive fullscreen. Music shortcuts always work.
 
 Settings are saved in %APPDATA%\KeyboardSound.

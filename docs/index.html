@@ -63,7 +63,18 @@
   .shot::before { content: ""; position: absolute; right: 3%; top: 5%; width: 14%; aspect-ratio: 1; border-radius: 10px; background: rgba(0, 0, 0, .28); border: 2px solid rgba(255, 255, 255, .35); }
   .shot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; border: 2px solid rgba(255, 255, 255, .8); border-radius: 50%; }
   .shot img { position: absolute; left: 2.5%; bottom: 4%; width: 58%; height: auto; opacity: .92; }
-  .shot img.shot-player { bottom: 31.5%; width: 25.4%; }
+  .shot img.s-kb { width: 50%; }
+  .shot img.s-mouse { left: 53.5%; width: 8.2%; }
+  .shot img.s-cat { left: 62.8%; width: 13.1%; }
+  .shot img.s-player { bottom: 31.6%; width: 27.4%; }
+  .shot img.s-stats { left: 31%; bottom: 31.6%; width: 16.5%; }
+  .shot img.s-text { left: 3%; bottom: auto; top: 7%; width: 14%; }
+  .wgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; }
+  .wcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .wcard .pic { height: 150px; display: grid; place-items: center; border-radius: 10px; background: radial-gradient(90% 120% at 30% 0%, #2a2350 0%, #0f0f15 75%); }
+  .wcard .pic img { max-width: 90%; max-height: 130px; height: auto; }
+  .wcard b { font-size: 17px; }
+  .wcard span.d { color: var(--muted); font-size: 15px; }
   .music { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: center; }
   @media (max-width: 760px) { .music { grid-template-columns: 1fr; } }
   .player-demo { border-radius: 16px; padding: 22px; background: radial-gradient(80% 120% at 20% 0%, #2a2350 0%, #0f0f15 70%); border: 1px solid var(--line); }
@@ -134,6 +145,7 @@
   <header>
     <a class="brand" href="./"><img src="icon.png" alt="">Keyboard Sound</a>
     <nav>
+      <a href="#widgety"><span class="cs">Widgety</span><span class="en">Widgets</span></a>
       <a href="#zvuky"><span class="cs">Zvuky</span><span class="en">Sounds</span></a>
       <a href="#efekty"><span class="cs">Efekty</span><span class="en">Effects</span></a>
       <a href="#hudba"><span class="cs">Hudba</span><span class="en">Music</span></a>
@@ -148,8 +160,8 @@
   <div class="hero">
     <h1><span class="cs">Každá klávesa cvakne a&nbsp;rozsvítí se</span><span class="en">Every key clicks and lights up</span></h1>
     <p>
-      <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. 3 zvuky nebo tvůj vlastní, 5 světelných efektů a ovládání hudby (Spotify, YouTube…) zkratkami. Funguje i ve hrách. Zdarma pro Windows 10 a 11.</span>
-      <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. 3 sounds or your own, 5 light effects and music control (Spotify, YouTube…) with shortcuts. Works in games too. Free for Windows 10 and 11.</span>
+      <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. Statistiky CPS / APM, kočka, která ťuká s tebou, vlastní texty a obrázky a ovládání hudby (Spotify, YouTube…). Každý widget si posuneš, kam chceš. Funguje i ve hrách. Zdarma pro Windows 10 a 11.</span>
+      <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. CPS / APM stats, a cat that taps along, your own texts and images, and music control (Spotify, YouTube…). Put every widget wherever you like. Works in games too. Free for Windows 10 and 11.</span>
     </p>
     <div class="actions">
       <a class="download" href="https://github.com/pepepep2323/keyboard-sound/releases/latest/download/KeyboardSound.zip">
@@ -162,25 +174,52 @@
       </button>
     </div>
     <div class="meta">
-      <span class="cs">Verze 1.2 · KeyboardSound.zip · cca 10 MB · bez instalace</span>
-      <span class="en">Version 1.2 · KeyboardSound.zip · about 10 MB · no installation</span>
+      <span class="cs">Verze 1.3 · KeyboardSound.zip · cca 10 MB · bez instalace</span>
+      <span class="en">Version 1.3 · KeyboardSound.zip · about 10 MB · no installation</span>
     </div>
   </div>
 
   <section>
     <div class="shot">
-      <img class="shot-player" src="player.png" alt="Music player panel" width="480" height="100">
-      <img src="preview.png" alt="RGB keyboard and mouse overlay in the corner of the screen" width="1096" height="278">
+      <img class="s-kb" src="preview.png" alt="RGB keyboard" width="948" height="278">
+      <img class="s-mouse" src="mouse.png" alt="Mouse" width="156" height="256">
+      <img class="s-cat" src="cat.png" alt="Clicking cat" width="248" height="224">
+      <img class="s-player" src="player.png" alt="Music player" width="520" height="100">
+      <img class="s-stats" src="stats.png" alt="CPS and APM stats" width="312" height="132">
+      <img class="s-text" src="text.png" alt="Your own text" width="189" height="61">
     </div>
     <p class="caption">
-      <span class="cs">Takhle to vypadá: klávesnice s přehrávačem sedí v rohu obrazovky přes hru, zmáčknuté klávesy a tlačítka myši se rozsvítí a myš kliká skrz.</span>
-      <span class="en">This is how it looks: the keyboard and the music player sit in a corner of your screen on top of your game, pressed keys and mouse buttons glow, and clicks go straight through.</span>
+      <span class="cs">Takhle to vypadá: widgety sedí přes hru tam, kam si je dáš. Zmáčknuté klávesy a tlačítka myši se rozsvítí a myš kliká skrz.</span>
+      <span class="en">This is how it looks: the widgets sit on top of your game wherever you put them. Pressed keys and mouse buttons glow, and clicks go straight through.</span>
     </p>
+  </section>
+
+  <section id="widgety">
+    <h2><span class="cs">Widgety</span><span class="en">Widgets</span></h2>
+    <p class="lead"><span class="cs">Každý widget je samostatný: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd>, pak ho táhni myší, kolečkem měň velikost a pravým klikem nastav. Zapnout / vypnout je můžeš v menu → Widgety.</span><span class="en">Every widget is separate: press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd>, then drag it, scroll to resize and right-click for options. Turn them on / off in menu → Widgets.</span></p>
+    <div class="wgrid">
+      <div class="wcard"><div class="pic"><img src="stats.png" alt="Stats" loading="lazy"></div>
+        <b><span class="cs">📊 Statistiky</span><span class="en">📊 Stats</span></b>
+        <span class="d cs">CPS (kliky za sekundu) s tvým rekordem, APM (akce za minutu) a kolik kláves a kliků jsi dnes zmáčkl.</span>
+        <span class="d en">CPS (clicks per second) with your record, APM (actions per minute) and how many keys and clicks you pressed today.</span></div>
+      <div class="wcard"><div class="pic"><img src="cat.png" alt="Cat" loading="lazy"></div>
+        <b><span class="cs">🐱 Kočka</span><span class="en">🐱 Cat</span></b>
+        <span class="d cs">Ťuká levou tlapkou s klávesnicí a pravou s myší a počítá každé zmáčknutí. Zrzavá, šedá, černá, bílá nebo RGB.</span>
+        <span class="d en">Taps along with your keyboard (left paw) and mouse (right paw) and counts every press. Ginger, gray, black, white or RGB.</span></div>
+      <div class="wcard"><div class="pic"><img src="text.png" alt="Text" loading="lazy"></div>
+        <b><span class="cs">✏️ Vlastní text</span><span class="en">✏️ Your own text</span></b>
+        <span class="d cs">Napiš cokoliv (i víc řádků). Duhový podle efektu nebo jedna barva, s pozadím nebo bez.</span>
+        <span class="d en">Write anything (multiple lines too). Rainbow following the effect or one color, with or without a background.</span></div>
+      <div class="wcard"><div class="pic"><img src="icon.png" alt="Image" loading="lazy" style="max-height:110px"></div>
+        <b><span class="cs">🖼️ Obrázek</span><span class="en">🖼️ Image</span></b>
+        <span class="d cs">Vlastní obrázek nebo animovaný GIF (png, jpg, gif, bmp). Přidej jich, kolik chceš.</span>
+        <span class="d en">Your own picture or animated GIF (png, jpg, gif, bmp). Add as many as you like.</span></div>
+    </div>
   </section>
 
   <section id="zvuky">
     <h2><span class="cs">Zvuky</span><span class="en">Sounds</span></h2>
-    <p class="lead"><span class="cs">Klikni a poslechni si je. Vybraný zvuk hraje i na klávesnici níž.</span><span class="en">Click to listen. The selected sound also plays on the keyboard below.</span></p>
+    <p class="lead"><span class="cs">Klikni a poslechni si je. Vybraný zvuk hraje i na klávesnici níž. Hlasitost kliků nastavíš v aplikaci od 10 do 100 %.</span><span class="en">Click to listen. The selected sound also plays on the keyboard below. Click volume goes from 10 to 100 % in the app.</span></p>
     <div class="sounds" id="sounds">
       <button class="snd" type="button" data-sound="creamy-1" aria-pressed="true">
         <span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
@@ -234,7 +273,7 @@
     <div class="music">
       <div>
         <div class="player-demo"><img src="player.png" alt="Music player: cover, title, artist, buttons and progress bar" width="480" height="100" loading="lazy"></div>
-        <p class="caption"><span class="cs">Přehrávač nad klávesnicí: klikni na tlačítka, nebo na lištu a skladba skočí na to místo.</span><span class="en">The player above the keyboard: click the buttons, or click the bar to jump to that point of the song.</span></p>
+        <p class="caption"><span class="cs">Klikni na tlačítka, na lištu (skok ve skladbě) nebo na reproduktor (ztlumit). Kolečko nad přehrávačem mění hlasitost hudby, hra zůstane stejně hlasitá.</span><span class="en">Click the buttons, the bar (jump in the song) or the speaker (mute). The mouse wheel over the player changes the music volume; your game stays as loud as it was.</span></p>
       </div>
       <ul class="binds">
         <li><span><span class="cs">Přehrát / pauza</span><span class="en">Play / pause</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>↓</kbd></span></li>
@@ -242,6 +281,8 @@
         <li><span><span class="cs">Předchozí skladba</span><span class="en">Previous track</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd></span></li>
         <li><span><span class="cs">Posunout o 10 s dopředu</span><span class="en">Seek 10 s forward</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>→</kbd></span></li>
         <li><span><span class="cs">Posunout o 10 s dozadu</span><span class="en">Seek 10 s back</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>←</kbd></span></li>
+        <li><span><span class="cs">Hlasitost hudby + / −</span><span class="en">Music volume + / −</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>↑</kbd><kbd>↓</kbd></span></li>
+        <li><span><span class="cs">Reklamy ve Spotify se samy ztlumí</span><span class="en">Spotify ads are muted automatically</span></span><span class="keys">🔇</span></li>
         <li><span><span class="cs">Vlastní zkratky a krok posunu: menu → Hudba</span><span class="en">Your own shortcuts and seek step: menu → Music</span></span><span class="keys">⚙️</span></li>
       </ul>
     </div>
@@ -271,27 +312,29 @@
         <ul class="cs">
           <li><b>Pravý klik</b> na ikonu klávesnice vpravo dole u hodin.</li>
           <li>Nevidíš ji? Klikni na šipku <b>^</b> vedle hodin.</li>
-          <li>V menu: zvuk, výběr zvuku, vlastní zvuk, hlasitost, efekt, barva, hudba, spouštění s Windows, nápověda, ukončení.</li>
+          <li>V menu: widgety, zvuk, hlasitost kliků, efekt, barva, hudba, spouštění s Windows, nápověda, ukončení.</li>
         </ul>
         <ul class="en">
           <li><b>Right-click</b> the keyboard icon near the clock (bottom right).</li>
           <li>Can't see it? Click the <b>^</b> arrow next to the clock.</li>
-          <li>The menu has: sound, sound choice, your own sound, volume, effect, color, music, start with Windows, help, quit.</li>
+          <li>The menu has: widgets, sound, click volume, effect, color, music, start with Windows, help, quit.</li>
         </ul>
       </div>
       <div class="card">
         <h3>↔️ <span class="cs">Přesunutí a velikost</span><span class="en">Move and resize</span></h3>
         <ul class="cs">
           <li>Zmáčkni <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> (nebo menu → Přesunout).</li>
-          <li><b>Táhni</b> klávesnici myší, <b>kolečkem</b> měníš velikost.</li>
-          <li><b>Pravý klik</b> na klávesnici: numpad, myš, pozadí, průhlednost, roh.</li>
-          <li>Znovu <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> = hotovo, pozice se uloží.</li>
+          <li><b>Táhni</b> každý widget zvlášť, <b>kolečkem</b> nad ním měníš jeho velikost.</li>
+          <li><b>Pravý klik</b> na widget: jeho možnosti (numpad, barva kočky, text…), skrýt, průhlednost.</li>
+          <li>Znovu <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> = hotovo, všechno se uloží.</li>
+          <li>Text nebo obrázek přidáš v menu → Widgety → Přidat…</li>
         </ul>
         <ul class="en">
           <li>Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> (or menu → Move).</li>
-          <li><b>Drag</b> the keyboard, <b>scroll</b> to resize.</li>
-          <li><b>Right-click</b> the keyboard: numpad, mouse, background, opacity, corner.</li>
-          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> again = done, the position is saved.</li>
+          <li><b>Drag</b> each widget on its own, <b>scroll</b> over it to resize.</li>
+          <li><b>Right-click</b> a widget: its options (numpad, cat color, text…), hide, opacity.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd> again = done, everything is saved.</li>
+          <li>Add a text or an image in menu → Widgets → Add…</li>
         </ul>
       </div>
       <div class="card">
@@ -310,29 +353,33 @@
         <ul class="cs">
           <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↓</kbd> přehrát / pauza, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>→</kbd> / <kbd>←</kbd> další / předchozí.</li>
           <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>→</kbd> / <kbd>←</kbd> posune skladbu o 10 s (držením dál).</li>
-          <li><b>Přehrávač</b> nad klávesnicí: klikni na tlačítka nebo na lištu.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd> hlasitost hudby (nebo kolečko nad přehrávačem).</li>
+          <li><b>Přehrávač</b>: klikni na tlačítka, lištu nebo reproduktor (ztlumit).</li>
+          <li><b>Reklamy ve Spotify</b> se samy ztlumí (vypneš v menu → Hudba).</li>
           <li><b>Změnit zkratky</b>: menu → Hudba → Změnit zkratky → vyber akci a stiskni novou zkratku.</li>
         </ul>
         <ul class="en">
           <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↓</kbd> play / pause, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>→</kbd> / <kbd>←</kbd> next / previous.</li>
           <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>→</kbd> / <kbd>←</kbd> seeks 10 s (hold to keep going).</li>
-          <li><b>The player</b> above the keyboard: click the buttons or the bar.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd> music volume (or the wheel over the player).</li>
+          <li><b>The player</b>: click the buttons, the bar or the speaker (mute).</li>
+          <li><b>Spotify ads</b> are muted automatically (turn off in menu → Music).</li>
           <li><b>Change shortcuts</b>: menu → Music → Change shortcuts → pick an action and press the new shortcut.</li>
         </ul>
       </div>
       <div class="card">
         <h3>⏻ <span class="cs">Skrytí a vypnutí</span><span class="en">Hide and quit</span></h3>
         <ul class="cs">
-          <li><b>Skrýt klávesnici</b>: menu → Zobrazit klávesnici (zvuk hraje dál).</li>
+          <li><b>Skrýt widgety</b>: menu → Zobrazit widgety, nebo jednotlivě v menu → Widgety.</li>
           <li><b>Vypnout</b>: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F12</kbd> nebo menu → Ukončit.</li>
           <li><b>Spouštět s Windows</b>: menu → Spouštět s Windows.</li>
-          <li><b>Hry</b>: klávesnice je vidět v režimu „okno bez okraje“, ne v exkluzivní celé obrazovce.</li>
+          <li><b>Hry</b>: widgety jsou vidět v režimu „okno bez okraje“, ne v exkluzivní celé obrazovce. Zkratky na hudbu fungují vždy.</li>
         </ul>
         <ul class="en">
-          <li><b>Hide the keyboard</b>: menu → Show keyboard (the sound keeps playing).</li>
+          <li><b>Hide widgets</b>: menu → Show widgets, or one by one in menu → Widgets.</li>
           <li><b>Quit</b>: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F12</kbd> or menu → Quit.</li>
           <li><b>Start with Windows</b>: menu → Start with Windows.</li>
-          <li><b>Games</b>: the keyboard shows in borderless / windowed fullscreen, not exclusive fullscreen.</li>
+          <li><b>Games</b>: widgets show in borderless / windowed fullscreen, not exclusive fullscreen. Music shortcuts always work.</li>
         </ul>
       </div>
     </div>

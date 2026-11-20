@@ -5,7 +5,9 @@ Works on Windows 10/11, in games too (borderless / windowed fullscreen).
 
 **🌐 Website with live demo: https://pepepep2323.github.io/keyboard-sound**
 
-![overlay](docs/preview.png)
+![keyboard](docs/preview.png)
+
+![player](docs/player.png) ![stats](docs/stats.png) ![cat](docs/cat.png)
 
 ## Download
 
@@ -18,8 +20,15 @@ If Windows says *"Windows protected your PC"*, click **More info → Run anyway*
 - 🔊 **3 click sounds** (Creamy 1/2/3) or **your own** (wav, mp3, m4a, ogg, flac, wma), volume control
 - 🌈 **5 light effects**: rainbow wave, static light, breathing, ripple from key, only pressed keys
 - 🎨 **10 colors**: rainbow or a single color
-- 🎵 **Music control** (Spotify, YouTube, …): player panel with cover, title and a clickable progress bar,
-  shortcuts to play/pause, skip and seek — change them however you like
+- 🧩 **Separate widgets** you can move, resize and hide one by one: keyboard, mouse, music player, stats, cat,
+  your own **texts** and **images** (animated GIFs too)
+- 📊 **Stats**: CPS (clicks per second) with your record, APM, today's keys and clicks
+- 🐱 **Clicking cat** that taps along with your keyboard and mouse and counts every press
+- 🎵 **Music control** (Spotify, YouTube, …): player panel with cover, title, volume and a clickable progress bar,
+  shortcuts to play/pause, skip, seek and change the **music volume** (only the music app, not the game) —
+  change them however you like
+- 🔇 **Spotify ads muted automatically** (they can't be skipped, so they're silenced)
+- 🔉 **Click volume** 10 – 100 %
 - 🖱️ Mouse buttons, wheel and side buttons
 - ⌨️ Key labels follow your keyboard layout (e.g. Czech ě š č ř ž)
 - 🎮 Doesn't slow games down, clicks go through the overlay
@@ -32,14 +41,16 @@ Full help: **[NAVOD.txt](NAVOD.txt)** (also inside the ZIP and in the app: menu 
 | What | How |
 |---|---|
 | Open the menu | Right-click the keyboard icon near the clock (bottom right) |
-| Move / resize | `Ctrl+Alt+F11`, drag it, scroll to resize, right-click for options, `Ctrl+Alt+F11` again to finish |
+| Move / resize widgets | `Ctrl+Alt+F11`, drag each widget, scroll over it to resize, right-click it for options, `Ctrl+Alt+F11` again to finish |
+| Turn widgets on / off, add text or image | Menu → Widgets |
 | Change sound / effect / color | Menu → Sound / Effect / Color |
 | Your own sound | Menu → Sound → Load your own sound… |
 | Music: play / pause | `Ctrl+Alt+↓` |
 | Music: next / previous | `Ctrl+Alt+→` / `Ctrl+Alt+←` |
 | Music: seek ±10 s | `Ctrl+Alt+Shift+→` / `Ctrl+Alt+Shift+←` |
+| Music volume | `Ctrl+Alt+Shift+↑` / `Ctrl+Alt+Shift+↓`, or the mouse wheel over the player |
 | Change music shortcuts | Menu → Music → Change shortcuts |
-| Hide the keyboard | Menu → Show keyboard |
+| Hide all widgets | Menu → Show widgets |
 | Quit | `Ctrl+Alt+F12` or menu → Quit |
 
 Settings are saved in `%APPDATA%\KeyboardSound`.
