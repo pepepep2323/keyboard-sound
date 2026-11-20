@@ -21,24 +21,32 @@ MENU
     - Zobrazit widgety (vypnutím skryješ všechno, zvuk hraje dál)
     - Widgety: zapnout / vypnout každý zvlášť, přidat text nebo obrázek,
       rozmístit do rohu
-    - Zvuk: zapnout/vypnout, Creamy 1 / 2 / 3, vlastní zvuk, hlasitost kliků
+    - Zvuk: zapnout/vypnout, Creamy 1 / 2 / 3, vlastní zvuk, hlasitost kliků,
+      cvakání i při klikání myší (normálně vypnuté)
     - Efekt: duhová vlna, statické světlo, dýchání,
              vlna od klávesy, jen stisknuté klávesy
     - Barva: duha nebo jedna barva
+    - Vzhled klávesnice: RGB, pastelová, normální černá
     - Hudba: ovládání skladeb, hlasitost, reklamy, změna zkratek
+    - Hry: Rocket League bez okraje, živá data pro widget
     - Spouštět s Windows, Nápověda, Ukončit
 
 WIDGETY
-  Klávesnice, Myš, Přehrávač, Statistiky, Kočka, Text, Obrázek.
+  Klávesnice, Myš, Přehrávač, Statistiky, Kočka, Čas hraní,
+  Rocket League, Geometry Dash, Text, Obrázek.
   Každý je samostatný - můžeš ho zvlášť přesunout, zvětšit nebo skrýt.
+  Widgety Rocket League a Geometry Dash se ukážou, jen když hra běží.
 
 PŘESUNUTÍ A VELIKOST
   Ctrl+Alt+F11 (nebo menu > Přesunout / změnit velikost)
     - táhni widget myší
     - kolečko myši nad widgetem = jeho velikost
     - pravý klik na widget = jeho možnosti:
-        klávesnice: numpad, pozadí
+        klávesnice a myš: vzhled (RGB / pastelová / černá), numpad, pozadí
         kočka: barva, vynulovat počítadlo
+        čas hraní: vynulovat, pozastavit
+        Rocket League: živá data, bez okraje, vynulovat výhry
+        Geometry Dash: vynulovat skoky
         statistiky: vynulovat dnešek / rekord
         text: upravit text, barva, tučně, pozadí
         obrázek: změnit obrázek
@@ -48,7 +56,8 @@ PŘESUNUTÍ A VELIKOST
 TEXT A OBRÁZEK
   Menu > Widgety > Přidat text... / Přidat obrázek...
   Obrázek může být png, jpg, gif (i animovaný) nebo bmp.
-  Můžeš jich přidat kolik chceš.
+  Můžeš jich přidat kolik chceš. Nový text / obrázek se hned
+  zapne v úpravách, takže ho rovnou přetáhneš, kam chceš.
 
 STATISTIKY
   CPS = kliky myší za sekundu (+ tvůj rekord)
@@ -58,6 +67,22 @@ STATISTIKY
 KOČKA
   Levou tlapkou ťuká do klávesnice, když píšeš, pravou do myši,
   když klikáš. Nahoře počítá všechny stisky.
+
+ČAS HRANÍ
+  Jak dlouho už hraješ (od spuštění Keyboard Sound), kolik je hodin
+  a jak dlouho běží hra, kterou máš zapnutou.
+
+ROCKET LEAGUE
+  Widget ukazuje skóre, čas, tvůj boost, góly / střely / asistence /
+  zákroky, rychlost míče a kolik zápasů jsi dnes vyhrál a prohrál.
+  Data posílá sama hra (oficiální Stats API), nic se do hry nevkládá.
+  Zapnutí: zavři Rocket League, menu > Hry > živá data, spusť hru.
+  Aby byly widgety ve hře vidět: zavři hru, menu > Hry > celá
+  obrazovka bez okraje. Vypadá to stejně jako normální celá obrazovka.
+
+GEOMETRY DASH
+  Kostička skáče s tebou a počítá skoky (klik, mezerník, šipka
+  nahoru, W, jen když je hra v popředí), dnes i celkem.
 
 VLASTNÍ ZVUK
   Menu > Zvuk > Nahrát vlastní zvuk...
@@ -96,7 +121,10 @@ VYPNUTÍ
 
 HRY
   Widgety jsou vidět jen v režimu "okno bez okraje" (borderless /
-  windowed fullscreen), ne v exkluzivní celé obrazovce.
+  windowed fullscreen), ne v exkluzivní celé obrazovce - přes ni
+  Windows nic jiného nezobrazí. Když hra běží v exkluzivní celé
+  obrazovce, Keyboard Sound ti po jejím zavření poradí, co přepnout.
+  Rocket League přepneš jedním klikem: menu > Hry.
   Zkratky na hudbu fungují vždy.
 
 Nastavení se ukládá do %APPDATA%\KeyboardSound.
@@ -120,24 +148,32 @@ MENU
     - Show widgets (untick to hide everything, the sound keeps playing)
     - Widgets: turn each one on / off, add a text or an image,
       arrange them in a corner
-    - Sound: on/off, Creamy 1 / 2 / 3, your own sound, click volume
+    - Sound: on/off, Creamy 1 / 2 / 3, your own sound, click volume,
+      click sound on mouse buttons too (off by default)
     - Effect: rainbow wave, static light, breathing,
               ripple from key, only pressed keys
     - Color: rainbow or a single color
+    - Keyboard look: RGB, pastel, normal black
     - Music: track controls, volume, ads, change shortcuts
+    - Games: Rocket League borderless, live data for the widget
     - Start with Windows, Help, Quit
 
 WIDGETS
-  Keyboard, Mouse, Player, Stats, Cat, Text, Image.
+  Keyboard, Mouse, Player, Stats, Cat, Session timer,
+  Rocket League, Geometry Dash, Text, Image.
   Each one is separate - move, resize or hide it on its own.
+  The Rocket League and Geometry Dash widgets only show while the game runs.
 
 MOVE AND RESIZE
   Ctrl+Alt+F11 (or menu > Move / resize)
     - drag a widget with the mouse
     - mouse wheel over a widget = its size
     - right-click a widget = its options:
-        keyboard: numpad, background
+        keyboard and mouse: look (RGB / pastel / black), numpad, background
         cat: color, reset counter
+        session timer: reset, pause
+        Rocket League: live data, borderless, reset wins
+        Geometry Dash: reset jumps
         stats: reset today / record
         text: edit text, color, bold, background
         image: change image
@@ -147,7 +183,8 @@ MOVE AND RESIZE
 TEXT AND IMAGE
   Menu > Widgets > Add text... / Add image...
   Images can be png, jpg, gif (animated too) or bmp.
-  Add as many as you like.
+  Add as many as you like. A new text / image starts in edit mode,
+  so you can drag it where you want straight away.
 
 STATS
   CPS = mouse clicks per second (+ your record)
@@ -157,6 +194,22 @@ STATS
 CAT
   Taps the keyboard with its left paw when you type and the mouse
   with its right paw when you click. Counts every press at the top.
+
+SESSION TIMER
+  How long you've been playing (since Keyboard Sound started), the time,
+  and how long the game you're playing has been running.
+
+ROCKET LEAGUE
+  Shows the score, time, your boost, goals / shots / assists / saves,
+  ball speed and how many matches you won and lost today.
+  The game sends the data itself (official Stats API), nothing is injected.
+  Turn on: close Rocket League, menu > Games > live data, start the game.
+  To see the widgets in the game: close it, menu > Games > borderless
+  fullscreen. It looks the same as normal fullscreen.
+
+GEOMETRY DASH
+  A little cube jumps with you and counts your jumps (click, Space,
+  Up arrow, W, only while the game is in front), today and in total.
 
 YOUR OWN SOUND
   Menu > Sound > Load your own sound...
@@ -195,6 +248,10 @@ QUIT
 
 GAMES
   Widgets are only visible in borderless / windowed
-  fullscreen, not in exclusive fullscreen. Music shortcuts always work.
+  fullscreen, not in exclusive fullscreen - Windows can't show anything
+  over it. If a game runs in exclusive fullscreen, Keyboard Sound tells
+  you what to change after you close it.
+  Switch Rocket League with one click: menu > Games.
+  Music shortcuts always work.
 
 Settings are saved in %APPDATA%\KeyboardSound.

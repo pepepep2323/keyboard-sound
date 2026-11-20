@@ -124,6 +124,37 @@ def main():
     snapshot(cat, "cat.png")
     app.widgets["text1"].redraw()
     snapshot(app.widgets["text1"], "text.png")
+
+    for style in ("pastel", "black"):                        # the other keyboard looks
+        kb.wcfg["style"] = style
+        kb.build()
+        press(kb, **gaming)
+        kb.redraw()
+        snapshot(kb, f"kb-{style}.png")
+    kb.wcfg["style"] = "rgb"
+
+    app.session_start = time.monotonic() - 5025
+    app.game_since = {"rocketleague.exe": time.monotonic() - 2534}
+    app.widgets["session"].redraw()
+    snapshot(app.widgets["session"], "session.png")
+
+    st.data.update(rl_w=3, rl_l=1, gd_jumps=1287, gd_total=48211)
+    rocket = app.widgets["rocket"]
+    rocket.on_rl("Connected", None)
+    me = {"Name": "Player", "Shortcut": 1, "TeamNum": 0, "Boost": 67, "Goals": 1, "Shots": 3, "Assists": 1,
+          "Saves": 2, "Speed": 1800}
+    rocket.on_rl("UpdateState", {"Players": [me], "Game": {
+        "Teams": [{"TeamNum": 0, "Score": 2}, {"TeamNum": 1, "Score": 1}], "TimeSeconds": 162,
+        "bOvertime": False, "Ball": {"Speed": 2417}, "bHasTarget": True, "Target": me}})
+    rocket.redraw()
+    snapshot(rocket, "rocket.png")
+
+    dash = app.widgets["dash"]
+    app.gd_seconds = 754
+    app.running = app.running | {"geometrydash.exe"}
+    dash.jumped_at = time.monotonic() - 0.15
+    dash.redraw()
+    snapshot(dash, "dash.png")
     app.close()
 
 

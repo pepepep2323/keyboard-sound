@@ -70,6 +70,8 @@
   .shot img.s-stats { left: 31%; bottom: 31.6%; width: 16.5%; }
   .shot img.s-text { left: 3%; bottom: auto; top: 7%; width: 14%; }
   .wgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; }
+  .wgrid .wcard.wide { grid-column: span 2; }
+  @media (max-width: 560px) { .wgrid .wcard.wide { grid-column: auto; } }
   .wcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
   .wcard .pic { height: 150px; display: grid; place-items: center; border-radius: 10px; background: radial-gradient(90% 120% at 30% 0%, #2a2350 0%, #0f0f15 75%); }
   .wcard .pic img { max-width: 90%; max-height: 130px; height: auto; }
@@ -160,8 +162,8 @@
   <div class="hero">
     <h1><span class="cs">Každá klávesa cvakne a&nbsp;rozsvítí se</span><span class="en">Every key clicks and lights up</span></h1>
     <p>
-      <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. Statistiky CPS / APM, kočka, která ťuká s tebou, vlastní texty a obrázky a ovládání hudby (Spotify, YouTube…). Každý widget si posuneš, kam chceš. Funguje i ve hrách. Zdarma pro Windows 10 a 11.</span>
-      <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. CPS / APM stats, a cat that taps along, your own texts and images, and music control (Spotify, YouTube…). Put every widget wherever you like. Works in games too. Free for Windows 10 and 11.</span>
+      <span class="cs">Zvuk cvaknutí při každém stisku a RGB, pastelová nebo černá klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. Statistiky CPS / APM, kočka, která ťuká s tebou, čas hraní, widgety pro Rocket League a Geometry Dash, vlastní texty a obrázky a ovládání hudby (Spotify, YouTube…). Každý widget si posuneš, kam chceš. Funguje i ve hrách. Zdarma pro Windows 10 a 11.</span>
+      <span class="en">A click sound on every key press, plus an RGB, pastel or black keyboard and mouse overlay that lights up what you press. CPS / APM stats, a cat that taps along, a session timer, Rocket League and Geometry Dash widgets, your own texts and images, and music control (Spotify, YouTube…). Put every widget wherever you like. Works in games too. Free for Windows 10 and 11.</span>
     </p>
     <div class="actions">
       <a class="download" href="https://github.com/pepepep2323/keyboard-sound/releases/latest/download/KeyboardSound.zip">
@@ -174,8 +176,8 @@
       </button>
     </div>
     <div class="meta">
-      <span class="cs">Verze 1.3 · KeyboardSound.zip · cca 10 MB · bez instalace</span>
-      <span class="en">Version 1.3 · KeyboardSound.zip · about 10 MB · no installation</span>
+      <span class="cs">Verze 1.4 · KeyboardSound.zip · cca 10 MB · bez instalace</span>
+      <span class="en">Version 1.4 · KeyboardSound.zip · about 10 MB · no installation</span>
     </div>
   </div>
 
@@ -196,8 +198,28 @@
 
   <section id="widgety">
     <h2><span class="cs">Widgety</span><span class="en">Widgets</span></h2>
-    <p class="lead"><span class="cs">Každý widget je samostatný: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd>, pak ho táhni myší, kolečkem měň velikost a pravým klikem nastav. Zapnout / vypnout je můžeš v menu → Widgety.</span><span class="en">Every widget is separate: press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd>, then drag it, scroll to resize and right-click for options. Turn them on / off in menu → Widgets.</span></p>
+    <p class="lead"><span class="cs">Každý widget je samostatný: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd>, pak ho táhni myší, kolečkem měň velikost a pravým klikem nastav. Zapnout / vypnout je můžeš v menu → Widgety. Nový text nebo obrázek se hned dá přesunout.</span><span class="en">Every widget is separate: press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F11</kbd>, then drag it, scroll to resize and right-click for options. Turn them on / off in menu → Widgets. A new text or image can be moved right away.</span></p>
     <div class="wgrid">
+      <div class="wcard"><div class="pic"><img src="rocket.png" alt="Rocket League" loading="lazy"></div>
+        <b>🚗 Rocket League</b>
+        <span class="d cs">Živé skóre, čas, tvůj boost, góly, střely a zákroky a kolik zápasů jsi dnes vyhrál. Data posílá sama hra (oficiální Stats API), nic se do ní nevkládá.</span>
+        <span class="d en">Live score, time, your boost, goals, shots and saves, and how many matches you won today. The game sends the data itself (official Stats API), nothing is injected.</span></div>
+      <div class="wcard"><div class="pic"><img src="dash.png" alt="Geometry Dash" loading="lazy"></div>
+        <b>🟩 Geometry Dash</b>
+        <span class="d cs">Kostička skáče s tebou a počítá skoky (klik, mezerník, šipka nahoru, W), dnes i celkem, a jak dlouho hraješ.</span>
+        <span class="d en">A little cube jumps with you and counts your jumps (click, Space, Up, W), today and in total, plus how long you've played.</span></div>
+      <div class="wcard"><div class="pic"><img src="session.png" alt="Session timer" loading="lazy"></div>
+        <b><span class="cs">⏱️ Čas hraní</span><span class="en">⏱️ Session timer</span></b>
+        <span class="d cs">Jak dlouho už hraješ, kolik je hodin a jak dlouho běží hra, kterou máš zapnutou. Jde pozastavit a vynulovat.</span>
+        <span class="d en">How long you've been playing, the time and how long the current game has been running. Can be paused and reset.</span></div>
+      <div class="wcard wide"><div class="pic"><img src="kb-pastel.png" alt="Pastel keyboard" loading="lazy"></div>
+        <b><span class="cs">🌸 Pastelová klávesnice</span><span class="en">🌸 Pastel keyboard</span></b>
+        <span class="d cs">Jemné pastelové barvy, zmáčknutá klávesa se rozzáří. Menu → Vzhled klávesnice.</span>
+        <span class="d en">Soft pastel colors, a pressed key lights up. Menu → Keyboard look.</span></div>
+      <div class="wcard wide"><div class="pic"><img src="kb-black.png" alt="Black keyboard" loading="lazy"></div>
+        <b><span class="cs">⬛ Normální černá klávesnice</span><span class="en">⬛ Normal black keyboard</span></b>
+        <span class="d cs">Jako obyčejná černá klávesnice, bez RGB. Zmáčknutá klávesa zesvětlá.</span>
+        <span class="d en">Like a plain black keyboard, no RGB. A pressed key turns lighter.</span></div>
       <div class="wcard"><div class="pic"><img src="stats.png" alt="Stats" loading="lazy"></div>
         <b><span class="cs">📊 Statistiky</span><span class="en">📊 Stats</span></b>
         <span class="d cs">CPS (kliky za sekundu) s tvým rekordem, APM (akce za minutu) a kolik kláves a kliků jsi dnes zmáčkl.</span>
@@ -373,13 +395,13 @@
           <li><b>Skrýt widgety</b>: menu → Zobrazit widgety, nebo jednotlivě v menu → Widgety.</li>
           <li><b>Vypnout</b>: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F12</kbd> nebo menu → Ukončit.</li>
           <li><b>Spouštět s Windows</b>: menu → Spouštět s Windows.</li>
-          <li><b>Hry</b>: widgety jsou vidět v režimu „okno bez okraje“, ne v exkluzivní celé obrazovce. Zkratky na hudbu fungují vždy.</li>
+          <li><b>Hry</b>: widgety jsou vidět v režimu „okno bez okraje“, ne v exkluzivní celé obrazovce. Rocket League přepneš jedním klikem: menu → Hry. Zkratky na hudbu fungují vždy.</li>
         </ul>
         <ul class="en">
           <li><b>Hide widgets</b>: menu → Show widgets, or one by one in menu → Widgets.</li>
           <li><b>Quit</b>: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F12</kbd> or menu → Quit.</li>
           <li><b>Start with Windows</b>: menu → Start with Windows.</li>
-          <li><b>Games</b>: widgets show in borderless / windowed fullscreen, not exclusive fullscreen. Music shortcuts always work.</li>
+          <li><b>Games</b>: widgets show in borderless / windowed fullscreen, not exclusive fullscreen. Switch Rocket League with one click: menu → Games. Music shortcuts always work.</li>
         </ul>
       </div>
     </div>

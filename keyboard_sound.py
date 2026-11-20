@@ -2,10 +2,12 @@
 Keyboard Sound - click sounds + RGB widgets for Windows.
 
 Plays a click every time you press a key and shows movable widgets on screen:
-an RGB keyboard and mouse that light up, a music player (Spotify, YouTube, ...),
-stats (CPS / APM), a clicking cat, your own texts and images.
+an RGB (or pastel / black) keyboard and mouse that light up, a music player (Spotify, YouTube, ...),
+stats (CPS / APM), a clicking cat, a session timer, Rocket League and Geometry Dash widgets,
+your own texts and images.
 
 Run:    python keyboard_sound.py   (or KeyboardSound.exe)
+Games:  tray icon -> Games: Rocket League borderless fullscreen + live data (official Stats API, TCP 49123)
 Tray:   right-click the tray icon for everything
 Move:   Ctrl+Alt+F11 -> drag widgets, mouse wheel = size, right-click = options, Ctrl+Alt+F11 again = done
 Stop:   Ctrl+Alt+F12 anywhere, tray icon -> Quit, or Ctrl+C in the console
@@ -27,6 +29,8 @@ import queue
 import random
 import shutil
 import signal
+import socket
+import codecs
 import sys
 import threading
 import time
@@ -39,6 +43,7 @@ from ctypes import wintypes
 
 # ---------------------------------------------------------------- settings
 APP_NAME = "Keyboard Sound"
+WIDGET_TYPES = ["keyboard", "mouse", "player", "stats", "cat", "session", "rocket", "dash", "text", "image"]
 FROZEN = getattr(sys, "frozen", False)               # True when running as KeyboardSound.exe
 HERE = os.path.dirname(os.path.abspath(__file__))
 RES_DIR = getattr(sys, "_MEIPASS", HERE)             # where bundled files are inside the .exe
@@ -49,7 +54,6 @@ SETTINGS_FILE = os.path.join(DATA_DIR, "overlay_settings.json")
 
 VOICES = 8             # how many clicks can overlap when typing fast
 PITCH_VARIATION = 0.04 # small random pitch change per click, sounds natural (0 = off)
-MOUSE_SOUND = False    # also click on mouse buttons
 
 # defaults (saved to overlay_settings.json; most of it is changed from the tray menu / Ctrl+Alt+F11)
 DEFAULTS = {
@@ -61,6 +65,7 @@ DEFAULTS = {
     "custom_sound": None,        # path of your own sound (copied into the settings folder)
     "custom_name": None,         # original file name of your own sound (shown in the menu)
     "volume": 1.0,               # click volume 0.1 .. 1.0
+    "mouse_sound": False,        # also click on mouse buttons (tray icon -> Sound)
     "effect": "wave",            # wave, static, breathe, ripple, reactive
     "color": "rainbow",          # rainbow or one of COLORS below
     "seek_step": 10,             # seconds to jump with the seek shortcuts
@@ -76,7 +81,8 @@ DEFAULTS = {
         "vol_down": [7, 0x28],   # Ctrl+Alt+Shift+Down
     },
     "widgets": None,             # every widget's position / size / options (made on first start)
-    "stats": {"date": "", "keys": 0, "clicks": 0, "best_cps": 0, "cat": 0},
+    "stats": {"date": "", "keys": 0, "clicks": 0, "best_cps": 0, "cat": 0, "rl_w": 0, "rl_l": 0, "gd_jumps": 0,
+              "gd_total": 0},
     "welcomed": False,           # first-start tip already shown
 }
 ISO_LAYOUT = True      # True = European keyboard (tall Enter), False = US
@@ -119,7 +125,8 @@ MENU
   Pravý klik na ikonu klávesnice vpravo dole u hodin.
   (Když ji nevidíš, klikni na šipku ^ vedle hodin.)
 
-WIDGETY (klávesnice, myš, přehrávač, statistiky, kočka, text, obrázek)
+WIDGETY (klávesnice, myš, přehrávač, statistiky, kočka, čas hraní,
+         Rocket League, Geometry Dash, text, obrázek)
   Ctrl+Alt+F11 = úpravy (nebo menu > Přesunout / změnit velikost)
   - každý widget táhni myší zvlášť
   - kolečko nad widgetem = jeho velikost
@@ -127,10 +134,13 @@ WIDGETY (klávesnice, myš, přehrávač, statistiky, kočka, text, obrázek)
   - znovu Ctrl+Alt+F11 = hotovo (uloží se)
   Zapnout / vypnout widgety: menu > Widgety
   Přidat text nebo obrázek: menu > Widgety > Přidat...
+  Vzhled klávesnice (RGB, pastelová, normální černá):
+  menu > Vzhled klávesnice, nebo pravý klik na klávesnici.
 
 ZVUK KLÁVES
   Menu > Zvuk: zapnout, Creamy 1 / 2 / 3, vlastní zvuk
-  (wav, mp3, m4a, ogg, flac, wma), hlasitost kliků
+  (wav, mp3, m4a, ogg, flac, wma), hlasitost kliků,
+  cvakání i při klikání myší
 
 HUDBA (SPOTIFY, YOUTUBE...)
   Ctrl+Alt+Šipka dolů               přehrát / pauza
@@ -151,6 +161,10 @@ VYPNOUT
 HRY
   Widgety jsou vidět jen v režimu "okno bez okraje"
   (borderless), ne v exkluzivní celé obrazovce.
+  Rocket League přepneš jedním klikem: menu > Hry.
+  Widget Rocket League ukazuje skóre, čas, tvůj boost a výhry
+  (zapni menu > Hry > živá data, pak restartuj hru).
+  Widget Geometry Dash počítá skoky a čas hraní.
 
 Nastavení se ukládá do %APPDATA%\\KeyboardSound."""
 
@@ -160,7 +174,8 @@ MENU
   Right-click the keyboard icon near the clock (bottom right).
   (If you can't see it, click the ^ arrow next to the clock.)
 
-WIDGETS (keyboard, mouse, player, stats, cat, text, image)
+WIDGETS (keyboard, mouse, player, stats, cat, session timer,
+         Rocket League, Geometry Dash, text, image)
   Ctrl+Alt+F11 = edit mode (or menu > Move / resize)
   - drag every widget on its own
   - mouse wheel over a widget = its size
@@ -168,10 +183,13 @@ WIDGETS (keyboard, mouse, player, stats, cat, text, image)
   - Ctrl+Alt+F11 again = done (it's saved)
   Turn widgets on / off: menu > Widgets
   Add a text or an image: menu > Widgets > Add...
+  Keyboard look (RGB, pastel, normal black):
+  menu > Keyboard look, or right-click the keyboard.
 
 KEY SOUND
   Menu > Sound: on/off, Creamy 1 / 2 / 3, your own sound
-  (wav, mp3, m4a, ogg, flac, wma), click volume
+  (wav, mp3, m4a, ogg, flac, wma), click volume,
+  click sound on mouse buttons too
 
 MUSIC (SPOTIFY, YOUTUBE...)
   Ctrl+Alt+Down arrow                play / pause
@@ -192,6 +210,10 @@ QUIT
 GAMES
   Widgets are only visible in borderless / windowed
   fullscreen, not in exclusive fullscreen.
+  Rocket League can be switched with one click: menu > Games.
+  The Rocket League widget shows the score, time, your boost and wins
+  (turn on menu > Games > live data, then restart the game).
+  The Geometry Dash widget counts your jumps and play time.
 
 Settings are saved in %APPDATA%\\KeyboardSound."""
 
@@ -242,6 +264,33 @@ TEXTS = {
         "fur": "Kočka", "fur_orange": "zrzavá", "fur_gray": "šedá", "fur_black": "černá", "fur_white": "bílá",
         "fur_rgb": "RGB", "stats_best": "rekord {}", "stats_apm_sub": "akcí za minutu",
         "stats_today": "Dnes: {} kláves · {} kliků",
+        "mouse_sound": "Cvakat i při klikání myší",
+        "style": "Vzhled klávesnice", "st_rgb": "RGB", "st_pastel": "Pastelová", "st_black": "Normální černá",
+        "w_session": "Čas hraní", "w_rocket": "Rocket League", "w_dash": "Geometry Dash",
+        "session_reset": "Vynulovat čas", "session_pause": "Pozastavit", "session_now": "teď {}",
+        "session_playing": "{} · {}", "session_label": "SESSION",
+        "games": "Hry",
+        "rl_waiting": "Čekám na zápas...", "rl_closed": "Spusť Rocket League",
+        "rl_today": "Dnes: {} výher · {} proher", "rl_ball": "Míč {} km/h", "rl_ot": "PRODL.",
+        "rl_goal": "GÓL!", "rl_stats": "Góly {}  ·  Střely {}  ·  Asist. {}  ·  Zákroky {}",
+        "rl_live": "Rocket League: živá data pro widget", "rl_live_rate": " (teď {}× za s)",
+        "rl_borderless": "Rocket League: celá obrazovka bez okraje (widgety vidět)",
+        "rl_close_first": "Nejdřív úplně zavři Rocket League a pak to zkus znovu.\n(Hra si nastavení při zavření přepíše.)",
+        "rl_no_config": "Nastavení Rocket League jsem nenašel.\nSpusť hru aspoň jednou a zkus to znovu.",
+        "rl_live_done": "Hotovo. Při příštím spuštění Rocket League pošle widgetu skóre, čas a boost.",
+        "rl_border_done": "Hotovo. Rocket League se příště spustí v celé obrazovce bez okraje.\n"
+                          "Vypadá to stejně jako normální celá obrazovka, ale widgety budou vidět.\n"
+                          "(Vrátit to jde ve hře: Nastavení > Video > Režim okna.)",
+        "rl_fullscreen_back": "Rocket League: zpět na exkluzivní celou obrazovku",
+        "rl_reset": "Vynulovat výhry / prohry",
+        "gd_jumps": "skoků dnes", "gd_total": "celkem {}", "gd_closed": "Spusť Geometry Dash",
+        "rl_win": "VÝHRA!", "rl_loss": "PROHRA", "rl_enable_hint": "Zapni živá data: menu > Hry",
+        "gd_time": "Hraješ {}", "gd_reset": "Vynulovat dnešní skoky",
+        "fs_title": "Widgety nebyly ve hře vidět",
+        "fs_text": "{} běží v exkluzivní celé obrazovce, přes ni Windows nic nezobrazí.\n"
+                   "Přepni ve hře režim okna na „Bez okraje“ (Borderless).",
+        "fs_text_rl": "Rocket League běží v exkluzivní celé obrazovce.\n"
+                      "Oprava jedním klikem: menu > Hry > celá obrazovka bez okraje.",
     },
     "en": {
         "move": "Move / resize\tCtrl+Alt+F11", "show": "Show widgets",
@@ -288,6 +337,33 @@ TEXTS = {
         "fur": "Cat", "fur_orange": "ginger", "fur_gray": "gray", "fur_black": "black", "fur_white": "white",
         "fur_rgb": "RGB", "stats_best": "record {}", "stats_apm_sub": "actions per minute",
         "stats_today": "Today: {} keys · {} clicks",
+        "mouse_sound": "Click sound on mouse buttons too",
+        "style": "Keyboard look", "st_rgb": "RGB", "st_pastel": "Pastel", "st_black": "Normal black",
+        "w_session": "Session timer", "w_rocket": "Rocket League", "w_dash": "Geometry Dash",
+        "session_reset": "Reset timer", "session_pause": "Pause", "session_now": "now {}",
+        "session_playing": "{} · {}", "session_label": "SESSION",
+        "games": "Games",
+        "rl_waiting": "Waiting for a match...", "rl_closed": "Start Rocket League",
+        "rl_today": "Today: {} wins · {} losses", "rl_ball": "Ball {} km/h", "rl_ot": "OT",
+        "rl_goal": "GOAL!", "rl_stats": "Goals {}  ·  Shots {}  ·  Assists {}  ·  Saves {}",
+        "rl_live": "Rocket League: live data for the widget", "rl_live_rate": " (now {}× per s)",
+        "rl_borderless": "Rocket League: borderless fullscreen (widgets visible)",
+        "rl_close_first": "Close Rocket League completely first, then try again.\n(The game overwrites its settings when it closes.)",
+        "rl_no_config": "Rocket League settings not found.\nStart the game at least once and try again.",
+        "rl_live_done": "Done. Next time Rocket League starts it sends the score, time and boost to the widget.",
+        "rl_border_done": "Done. Rocket League will start in borderless fullscreen next time.\n"
+                          "It looks the same as normal fullscreen, but the widgets will be visible.\n"
+                          "(You can change it back in the game: Settings > Video > Window mode.)",
+        "rl_fullscreen_back": "Rocket League: back to exclusive fullscreen",
+        "rl_reset": "Reset wins / losses",
+        "gd_jumps": "jumps today", "gd_total": "total {}", "gd_closed": "Start Geometry Dash",
+        "rl_win": "WIN!", "rl_loss": "LOSS", "rl_enable_hint": "Turn on live data: menu > Games",
+        "gd_time": "Playing {}", "gd_reset": "Reset today's jumps",
+        "fs_title": "Widgets weren't visible in the game",
+        "fs_text": "{} runs in exclusive fullscreen, Windows can't show anything over it.\n"
+                   "Set the game's window mode to \"Borderless\".",
+        "fs_text_rl": "Rocket League runs in exclusive fullscreen.\n"
+                      "One-click fix: menu > Games > borderless fullscreen.",
     },
 }
 LANG = ui_language()
@@ -654,6 +730,7 @@ CTRL_IDS = {V(0xA2), V(0xA3)}
 ALT_IDS = {V(0xA4), V(0xA5)}
 
 sound_enabled = True
+mouse_sound_enabled = False
 ui_events = queue.Queue()     # ("down"|"up"|"tap", id) / ("edit"|"quit", None) / ("wheel", delta)
 input_thread_id = None
 held = set()
@@ -712,7 +789,7 @@ def handle_mouse(ms):
     for down, up, mid in MOUSE_FLAGS:
         if bf & down:
             ui_events.put(("down", mid))
-            if MOUSE_SOUND and sound_enabled:
+            if mouse_sound_enabled and sound_enabled:
                 play_requests.put(1)
         if bf & up:
             ui_events.put(("up", mid))
@@ -931,6 +1008,23 @@ def mix(a, b, t):
 DARK = (0.06, 0.06, 0.08)
 WHITE = (1.0, 1.0, 1.0)
 INK = (0.05, 0.05, 0.05)
+KEY_STYLES = ["rgb", "pastel", "black"]
+
+
+def style_colors(style, key):
+    """(fill, outline, text, pressed fill, pressed outline, pressed text) of one key in the pastel / black look."""
+    body = key.get("body")
+    if style == "pastel":
+        if body:
+            return (0.96, 0.95, 0.99), (0.78, 0.76, 0.87), INK, None, None, None
+        hue = (key["xfrac"] * 0.85 + 0.55) % 1.0
+        fill = colorsys.hsv_to_rgb(hue, 0.30, 1.0)
+        return (fill, colorsys.hsv_to_rgb(hue, 0.42, 0.86), (0.30, 0.27, 0.42),
+                colorsys.hsv_to_rgb(hue, 0.62, 1.0), colorsys.hsv_to_rgb(hue, 0.75, 0.78), WHITE)
+    if body:
+        return (0.10, 0.10, 0.115), (0.25, 0.25, 0.28), WHITE, None, None, None
+    return ((0.075, 0.075, 0.085), (0.24, 0.24, 0.27), (0.88, 0.88, 0.9),
+            (0.42, 0.42, 0.47), (0.7, 0.7, 0.76), WHITE)
 
 
 def default_widgets(old):
@@ -944,6 +1038,13 @@ def default_widgets(old):
         "stats": {"type": "stats", "x": None, "y": None, "size": size, "visible": True},
         "cat": {"type": "cat", "x": None, "y": None, "size": size, "visible": True, "fur": "orange"},
     }
+
+
+NEW_WIDGETS = {          # built-in widgets added in later versions (added to old settings too)
+    "session": {"type": "session", "visible": True},
+    "rocket": {"type": "rocket", "visible": True},
+    "dash": {"type": "dash", "visible": True},
+}
 
 
 def load_settings():
@@ -961,12 +1062,16 @@ def load_settings():
             cfg["visible"] = False
     widgets = {}
     for wid, w in cfg["widgets"].items():
-        if isinstance(w, dict) and w.get("type") in ("keyboard", "mouse", "player", "stats", "cat", "text", "image"):
+        if isinstance(w, dict) and w.get("type") in WIDGET_TYPES:
             w.setdefault("x", None)
             w.setdefault("y", None)
             w.setdefault("size", 26)
             w.setdefault("visible", True)
             widgets[wid] = w
+    for wid, w in NEW_WIDGETS.items():
+        if not any(x["type"] == w["type"] for x in widgets.values()):
+            size = (widgets.get("keyboard") or {}).get("size", 26)
+            widgets[wid] = {**w, "x": None, "y": None, "size": size}
     cfg["widgets"] = widgets
     cfg["stats"] = {**DEFAULTS["stats"], **(cfg.get("stats") or {})}
     cfg["binds"] = {**DEFAULTS["binds"], **(cfg.get("binds") or {})}
@@ -1245,6 +1350,188 @@ def media_worker(ready):
         asyncio.run(media_main())
     except Exception as e:
         print("music control stopped:", e)
+
+
+
+# ---------------------------------------------------------------- games (running programs, Rocket League, Geometry Dash)
+class PROCESSENTRY32W(ctypes.Structure):
+    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD), ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", ctypes.c_long), ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+
+
+kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+
+KNOWN_GAMES = {
+    "rocketleague.exe": "Rocket League", "geometrydash.exe": "Geometry Dash",
+    "fortniteclient-win64-shipping.exe": "Fortnite", "cs2.exe": "Counter-Strike 2",
+    "valorant-win64-shipping.exe": "Valorant", "robloxplayerbeta.exe": "Roblox",
+    "minecraft.windows.exe": "Minecraft", "league of legends.exe": "League of Legends",
+    "gta5.exe": "GTA V", "gta5_enhanced.exe": "GTA V", "r5apex.exe": "Apex Legends",
+    "overwatch.exe": "Overwatch 2", "osu!.exe": "osu!", "brawlhalla.exe": "Brawlhalla",
+    "fallguys_client_game.exe": "Fall Guys", "rainbowsix.exe": "Rainbow Six Siege",
+    "eafc25.exe": "EA FC", "eafc26.exe": "EA FC", "cod.exe": "Call of Duty",
+}
+
+
+def running_programs():
+    """Lower-case exe names of all running programs (cheap: no process is opened)."""
+    names = set()
+    snap = kernel32.CreateToolhelp32Snapshot(0x2, 0)
+    if not snap or snap == wintypes.HANDLE(-1).value:
+        return names
+    entry = PROCESSENTRY32W()
+    entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+    ok = kernel32.Process32FirstW(snap, ctypes.byref(entry))
+    while ok:
+        names.add(entry.szExeFile.lower())
+        ok = kernel32.Process32NextW(snap, ctypes.byref(entry))
+    kernel32.CloseHandle(snap)
+    return names
+
+
+def foreground_program():
+    hwnd = user32.GetForegroundWindow()
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return (process_name(pid.value) or "").lower() if pid.value else ""
+
+
+def is_geometry_dash(exe):
+    return "geometrydash" in exe.replace(" ", "")
+
+
+def documents_dir():
+    buf = ctypes.create_unicode_buffer(260)
+    if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0:      # CSIDL_PERSONAL
+        return buf.value
+    return os.path.join(os.path.expanduser("~"), "Documents")
+
+
+def rl_config_dir():
+    return os.path.join(documents_dir(), "My Games", "Rocket League", "TAGame", "Config")
+
+
+def read_ini(path, section):
+    values, current = {}, None
+    try:
+        with open(path, encoding="utf-8-sig", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("[") and line.endswith("]"):
+                    current = line[1:-1]
+                elif current == section and "=" in line:
+                    k, v = line.split("=", 1)
+                    values.setdefault(k.strip(), v.strip())
+    except OSError:
+        pass
+    return values
+
+
+def write_ini(path, section, changes):
+    """Change keys in one [section] of an .ini file, keep everything else exactly as it was."""
+    try:
+        with open(path, encoding="utf-8-sig", errors="replace", newline="") as f:
+            lines = f.read().splitlines()
+    except FileNotFoundError:
+        lines = []
+    todo, out, current = dict(changes), [], None
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if current == section and todo:                   # leaving our section: add what's missing
+                out.extend(f"{k}={v}" for k, v in todo.items())
+                todo = {}
+            current = stripped[1:-1]
+        elif current == section and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in changes:
+                if key not in todo:
+                    continue                                    # duplicate key: drop it
+                line = f"{key}={todo.pop(key)}"
+        out.append(line)
+    if todo:
+        if current != section:
+            out += ([""] if out and out[-1].strip() else []) + [f"[{section}]"]
+        out.extend(f"{k}={v}" for k, v in todo.items())
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".ks-tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\r\n") as f:
+        f.write("\n".join(out) + "\n")
+    os.replace(tmp, path)
+
+
+RL_STATS_INI = "TAStatsAPI.ini"
+RL_STATS_SECTION = "TAGame.MatchStatsExporter_TA"
+RL_VIDEO_INI = "TASystemSettings.ini"
+rl_wanted = threading.Event()      # set while the Rocket League widget wants data
+
+
+def rl_port():
+    try:
+        return int(read_ini(os.path.join(rl_config_dir(), RL_STATS_INI), RL_STATS_SECTION).get("Port", 49123))
+    except ValueError:
+        return 49123
+
+
+def rl_worker(ready):
+    """Reads Rocket League's official Stats API (a local TCP socket that streams JSON messages)."""
+    ready.append(None)
+    decoder = json.JSONDecoder()
+    while True:
+        rl_wanted.wait()
+        try:
+            sock = socket.create_connection(("127.0.0.1", rl_port()), timeout=1.5)
+        except OSError:
+            time.sleep(3)
+            continue
+        ui_events.put(("rl", ("Connected", None)))
+        wake_overlay()
+        text, utf8 = "", codecs.getincrementaldecoder("utf-8")(errors="replace")
+        sock.settimeout(5)
+        try:
+            while rl_wanted.is_set():
+                try:
+                    chunk = sock.recv(65536)
+                except socket.timeout:
+                    continue
+                if not chunk:
+                    break
+                text += utf8.decode(chunk)
+                while text:
+                    start = text.find("{")
+                    if start < 0:
+                        text = ""
+                        break
+                    try:
+                        msg, end = decoder.raw_decode(text, start)
+                    except ValueError:
+                        if len(text) > 4_000_000:                # broken stream: start over
+                            text = ""
+                        elif text.find("{", start + 1) > 0 and len(text) - start > 200_000:
+                            text = text[start + 1:]
+                        break
+                    text = text[end:]
+                    if isinstance(msg, dict):
+                        data = msg.get("Data")
+                        if isinstance(data, str):
+                            try:
+                                data = json.loads(data)
+                            except ValueError:
+                                pass
+                        ui_events.put(("rl", (msg.get("Event"), data)))
+                        wake_overlay()
+        except OSError:
+            pass
+        finally:
+            sock.close()
+        ui_events.put(("rl", ("Disconnected", None)))
+        wake_overlay()
+        time.sleep(2)
 
 
 # ---------------------------------------------------------------- shortcuts
@@ -1843,7 +2130,6 @@ for _name, _args, _res in (
 
 
 # ---------------------------------------------------------------- widgets
-WIDGET_TYPES = ["keyboard", "mouse", "player", "stats", "cat", "text", "image"]
 EX_BASE = 0x00080000 | 0x00000008 | 0x00000080 | 0x08000000      # LAYERED | TOPMOST | TOOLWINDOW | NOACTIVATE
 ACCENT = (0.49, 0.61, 1.0)
 
@@ -2139,13 +2425,22 @@ class KeysWidget(GdiWidget):
         self.dirty = True
         self.refresh()
 
+    @property
+    def style(self):
+        st = self.wcfg.get("style", "rgb")
+        return st if st in KEY_STYLES else "rgb"
+
     def menu_items(self, add, checked):
+        for i, st in enumerate(KEY_STYLES):
+            add(checked(self.style == st), 702 + i, f"{T('style')}: {T('st_' + st)}")
         if self.kind == "keyboard":
             add(0, 700, T("numpad_hide" if self.wcfg.get("numpad", True) else "numpad_show"))
             add(0, 701, T("bg_hide" if self.wcfg.get("background") else "bg_show"))
 
     def menu_command(self, cmd):
-        if cmd == 700:
+        if 702 <= cmd < 702 + len(KEY_STYLES):
+            self.wcfg["style"] = KEY_STYLES[cmd - 702]
+        elif cmd == 700:
             self.wcfg["numpad"] = not self.wcfg.get("numpad", True)
         elif cmd == 701:
             self.wcfg["background"] = not self.wcfg.get("background")
@@ -2168,6 +2463,9 @@ class KeysWidget(GdiWidget):
 
     def key_colors(self, key, now, glow):
         app = self.app
+        if self.style != "rgb":
+            fill, outline, text, p_fill, p_outline, p_text = key["style"]
+            return (cref(mix(fill, p_fill, glow)), cref(mix(outline, p_outline, glow)), cref(mix(text, p_text, glow)))
         color = app.glow_color(key["xfrac"], now)
         idle = mix(DARK, color, IDLE_BRIGHTNESS * app.idle_level(now))
         if not glow:
@@ -2194,6 +2492,23 @@ class KeysWidget(GdiWidget):
     def build_layers(self):
         dc = self.static_dc
         self.fill_all(dc, TRANSPARENT_KEY)
+        if self.style != "rgb":                   # pastel / black: one still picture, no color masks needed
+            if self.wcfg.get("background"):
+                plate = ((0.97, 0.96, 1.0), (0.84, 0.82, 0.92)) if self.style == "pastel" else \
+                        ((0.035, 0.035, 0.04), (0.17, 0.17, 0.2))
+                gdi32.SetDCBrushColor(dc, cref(plate[0]))
+                gdi32.SetDCPenColor(dc, cref(plate[1]))
+                gdi32.Polygon(dc, *self.plate)
+            for key in self.keys:
+                key["style"] = style_colors(self.style, key)
+                fill, outline, text = key["style"][:3]
+                if key.get("body"):
+                    gdi32.SetDCBrushColor(dc, cref(fill))
+                    gdi32.SetDCPenColor(dc, cref(outline))
+                    gdi32.Polygon(dc, *key["poly"])
+                else:
+                    self.draw_key(dc, key, (cref(fill), cref(outline), cref(text)))
+            return
         if self.wcfg.get("background"):
             gdi32.SetDCBrushColor(dc, cref((0.043, 0.043, 0.06)))
             gdi32.SetDCPenColor(dc, cref((0.15, 0.15, 0.18)))
@@ -2235,6 +2550,8 @@ class KeysWidget(GdiWidget):
     def render_base(self, now):
         w, h = self.w, self.h
         gdi32.BitBlt(self.base_dc, 0, 0, w, h, self.static_dc, 0, 0, SRCCOPY)
+        if self.style != "rgb":
+            return
         level = self.app.idle_level(now)
         for mask, lift, brightness in ((self.outline_dc, 0.0, IDLE_BRIGHTNESS * level),
                                        (self.text_dc, 0.3, max(level, 0.35))):
@@ -2247,7 +2564,7 @@ class KeysWidget(GdiWidget):
             return
         now = time.monotonic()
         base_changed = False
-        if force_base or (self.app.animated() and now - self.last_rgb >= 1.0 / RGB_FPS):
+        if force_base or (self.style == "rgb" and self.app.animated() and now - self.last_rgb >= 1.0 / RGB_FPS):
             self.render_base(now)
             self.last_rgb = now
             base_changed = True
@@ -2599,7 +2916,7 @@ class Stats:
     def check_day(self):
         today = datetime.now().strftime("%Y-%m-%d")
         if self.data.get("date") != today:
-            self.data.update(date=today, keys=0, clicks=0)
+            self.data.update(date=today, keys=0, clicks=0, rl_w=0, rl_l=0, gd_jumps=0)
 
     def add(self, kid):
         now = time.monotonic()
@@ -2848,6 +3165,366 @@ class CatWidget(ArgbWidget):
                            argb(WHITE, 0.8), line * 0.8)
 
 
+# ---------------------------------------------------------------- session timer and game widgets
+def clock_text(seconds, hours=True):
+    seconds = max(0, int(seconds))
+    h, m, sec = seconds // 3600, seconds // 60 % 60, seconds % 60
+    if hours or h:
+        return f"{h}:{m:02d}:{sec:02d}"
+    return f"{m}:{sec:02d}"
+
+
+def panel(c, w, h, u, app, now):
+    """The dark rounded card most widgets sit on."""
+    c.round_rect(0.5, 0.5, w - 1, h - 1, 0.45 * u, fill=argb((0.05, 0.05, 0.07), 0.82),
+                 stroke=argb(mix((0.05, 0.05, 0.07), app.glow_color(0.1, now), 0.6)), width=max(1, u / 20))
+
+
+class SessionWidget(ArgbWidget):
+    """How long you've been playing: since Keyboard Sound started, plus the game that's running."""
+    kind = "session"
+
+    def __init__(self, app, wid):
+        super().__init__(app, wid)
+        self.last_draw = 0.0
+        self.build()
+
+    def build(self):
+        u = self.u
+        self.make_canvas(7.4 * u, 3.0 * u)
+        self.place()
+        self.refresh()
+
+    def draw(self, c, now):
+        self.last_draw = now
+        u, app = self.u, self.app
+        panel(c, self.w, self.h, u, app, now)
+        muted = argb((0.62, 0.62, 0.7))
+        c.text(T("session_label"), 0.45 * u, 0.2 * u, 3 * u, 0.5 * u, 0.3 * u, muted, align=0)
+        c.text(T("session_now").format(datetime.now().strftime("%H:%M")), 0, 0.2 * u, self.w - 0.45 * u, 0.5 * u,
+               0.3 * u, muted, bold=False, align=2)
+        paused = app.session_paused_at is not None
+        colors = [argb(app.glow_color(i / 4, now)) for i in range(5)]
+        c.text(clock_text(app.session_seconds(now)), 0, 0.6 * u, self.w, 1.4 * u, 1.05 * u,
+               argb((0.6, 0.6, 0.65)) if paused else colors, outline=argb((0, 0, 0), 0.6), outline_w=u / 10)
+        game = app.current_game()
+        if game:
+            name, since = game
+            line = T("session_playing").format(name, clock_text(now - since, hours=False))
+        else:
+            st = app.stats.data
+            line = T("stats_today").format(f"{st['keys']:,}".replace(",", " "), f"{st['clicks']:,}".replace(",", " "))
+        c.line(0.5 * u, 2.1 * u, self.w - 0.5 * u, 2.1 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+        c.text(line, 0, 2.15 * u, self.w, 0.7 * u, 0.33 * u, argb((0.85, 0.85, 0.9)), bold=False)
+
+    def tick(self, now):
+        if self.shown and (now - self.last_draw >= 1.0 or (self.app.animated() and now - self.last_draw > 1 / RGB_FPS)):
+            self.redraw()
+
+    def menu_items(self, add, checked):
+        add(0, 770, T("session_reset"))
+        add(checked(self.app.session_paused_at is not None), 771, T("session_pause"))
+
+    def menu_command(self, cmd):
+        app, now = self.app, time.monotonic()
+        if cmd == 770:
+            app.session_start = now
+            app.session_paused_at = now if app.session_paused_at is not None else None
+        elif cmd == 771:
+            if app.session_paused_at is None:
+                app.session_paused_at = now
+            else:
+                app.session_start += now - app.session_paused_at
+                app.session_paused_at = None
+        else:
+            return False
+        self.redraw()
+        return True
+
+
+RL_BLUE, RL_ORANGE = (0.16, 0.5, 1.0), (1.0, 0.52, 0.08)
+
+
+class RocketWidget(ArgbWidget):
+    """Live Rocket League scoreboard from the game's official Stats API: score, time, your boost, wins today."""
+    kind = "rocket"
+
+    def __init__(self, app, wid):
+        super().__init__(app, wid)
+        self.connected = False
+        self.in_match = False
+        self.game, self.me = {}, None
+        self.my_team, self.my_name = None, None
+        self.flash = None                       # (until, text, color)
+        self.kmh = None                         # None = speeds in Unreal units per second (the docs), True = km/h
+        self.last_end = 0.0
+        self.dirty, self.last_draw = True, 0.0
+        self.build()
+
+    def build(self):
+        u = self.u
+        self.make_canvas(9.0 * u, 4.15 * u)
+        self.place()
+        self.refresh()
+
+    def has_content(self):
+        return self.connected or "rocketleague.exe" in self.app.running
+
+    # ---------- data from the game
+    def find_me(self, players, target):
+        if target:
+            for pl in players:
+                if pl.get("Name") == target.get("Name") and pl.get("Shortcut") == target.get("Shortcut"):
+                    return pl
+        if self.my_name:
+            for pl in players:
+                if pl.get("Name") == self.my_name:
+                    return pl
+        return None
+
+    def on_rl(self, event, data):
+        now = time.monotonic()
+        data = data if isinstance(data, dict) else {}
+        if event in ("Connected", "Disconnected"):
+            self.connected = event == "Connected"
+            self.in_match, self.game, self.me = False, {}, None
+            self.refresh()
+            return
+        if event == "UpdateState":
+            game, players = data.get("Game") or {}, data.get("Players") or []
+            self.game = game
+            self.in_match = bool(game.get("Teams") or players)
+            target = game.get("Target") if game.get("bHasTarget") and isinstance(game.get("Target"), dict) else None
+            me = self.find_me(players, target)
+            if me:
+                self.me = me
+                if not game.get("bReplay") and me.get("TeamNum") in (0, 1):
+                    self.my_team, self.my_name = me.get("TeamNum"), me.get("Name")
+            for pl in players:                    # find out the speed unit once from a supersonic car
+                if self.kmh is None and pl.get("bSupersonic") and isinstance(pl.get("Speed"), (int, float)):
+                    self.kmh = pl["Speed"] < 400
+        elif event == "GoalScored":
+            scorer = data.get("Scorer") or {}
+            team = scorer.get("TeamNum")
+            self.flash = (now + 2.5, f"{T('rl_goal')} {scorer.get('Name', '')}".strip(),
+                          RL_BLUE if team == 0 else RL_ORANGE)
+        elif event == "MatchEnded":
+            winner = data.get("WinnerTeamNum")
+            if self.my_team in (0, 1) and winner in (0, 1) and now - self.last_end > 15:
+                self.last_end = now
+                won = winner == self.my_team
+                st = self.app.stats
+                st.check_day()
+                st.data["rl_w" if won else "rl_l"] = st.data.get("rl_w" if won else "rl_l", 0) + 1
+                self.flash = (now + 6, T("rl_win" if won else "rl_loss"), (0.2, 0.85, 0.4) if won else (0.9, 0.25, 0.3))
+                save_settings(self.app.cfg)
+        elif event in ("MatchDestroyed", "MatchCreated"):
+            self.in_match, self.game, self.me = False, {}, None
+            if event == "MatchCreated":
+                self.in_match = True
+        self.dirty = True
+
+    def kmh_of(self, speed):
+        if not isinstance(speed, (int, float)):
+            return None
+        return int(round(speed if self.kmh else speed * 0.036))
+
+    # ---------- drawing
+    def draw(self, c, now):
+        self.last_draw, self.dirty = now, False
+        u, app = self.u, self.app
+        panel(c, self.w, self.h, u, app, now)
+        muted, light = argb((0.62, 0.62, 0.7)), argb((0.85, 0.85, 0.9))
+        colors = [argb(app.glow_color(i / 4, now)) for i in range(5)]
+        st = app.stats.data
+        today = T("rl_today").format(st.get("rl_w", 0), st.get("rl_l", 0))
+        if not self.in_match:
+            c.text("ROCKET LEAGUE", 0, 0.35 * u, self.w, 1.2 * u, 0.75 * u, colors, outline=argb((0, 0, 0), 0.6),
+                   outline_w=u / 10)
+            if self.connected:
+                status = T("rl_waiting")
+            elif "rocketleague.exe" in app.running:
+                status = T("rl_enable_hint") if not app.rl_live_on() else T("rl_waiting")
+            else:
+                status = T("rl_closed")
+            c.text(status, 0, 1.65 * u, self.w, 0.8 * u, 0.4 * u, light, bold=False)
+            c.line(0.5 * u, 2.75 * u, self.w - 0.5 * u, 2.75 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+            c.text(today, 0, 2.85 * u, self.w, 0.9 * u, 0.4 * u, light, bold=False)
+            self.draw_flash(c, now)
+            return
+
+        game = self.game
+        teams = {t.get("TeamNum"): t for t in game.get("Teams") or [] if isinstance(t, dict)}
+        # score boxes + clock
+        box_w, box_h, top = 2.3 * u, 1.35 * u, 0.3 * u
+        for team, x, col in ((0, 0.3 * u, RL_BLUE), (1, self.w - 0.3 * u - box_w, RL_ORANGE)):
+            mine = team == self.my_team
+            c.round_rect(x, top, box_w, box_h, 0.3 * u, fill=argb(mix(col, (0, 0, 0), 0.25)),
+                         stroke=argb(WHITE, 0.9) if mine else None, width=max(1.5, u / 12))
+            c.text(str((teams.get(team) or {}).get("Score", 0)), x, top, box_w, box_h, 0.95 * u, argb(WHITE),
+                   outline=argb((0, 0, 0), 0.4), outline_w=u / 14)
+        secs = game.get("TimeSeconds", 0) or 0
+        ot = game.get("bOvertime")
+        clock = ("+" if ot else "") + clock_text(secs, hours=False)
+        c.text(clock, 0, top, self.w, box_h, 0.8 * u, colors if not ot else argb((1.0, 0.85, 0.3)),
+               outline=argb((0, 0, 0), 0.6), outline_w=u / 12)
+        if ot:
+            c.text(T("rl_ot"), 0, top + box_h - 0.2 * u, self.w, 0.4 * u, 0.26 * u, argb((1.0, 0.85, 0.3)))
+
+        # boost bar
+        me = self.me or {}
+        boost = me.get("Boost")
+        by, bh = 1.95 * u, 0.5 * u
+        c.text("BOOST", 0.3 * u, by, 1.5 * u, bh, 0.3 * u, muted, align=0)
+        bx, bw = 1.6 * u, self.w - 1.6 * u - 1.25 * u
+        c.round_rect(bx, by + 0.08 * u, bw, bh - 0.16 * u, 0.17 * u, fill=argb((1, 1, 1), 0.08))
+        if isinstance(boost, (int, float)):
+            frac = max(0.0, min(1.0, boost / 100))
+            if frac > 0.01:
+                fill_col = (1.0, 0.85, 0.2) if me.get("bBoosting") else (1.0, 0.6, 0.12)
+                c.round_rect(bx, by + 0.08 * u, max(bh - 0.16 * u, bw * frac), bh - 0.16 * u, 0.17 * u,
+                             fill=argb(fill_col))
+            c.text(str(int(boost)), self.w - 1.2 * u, by, 0.9 * u, bh, 0.36 * u, argb(WHITE), align=2)
+        else:
+            c.text("-", self.w - 1.2 * u, by, 0.9 * u, bh, 0.36 * u, muted, align=2)
+
+        # your numbers, ball speed, wins today
+        c.text(T("rl_stats").format(me.get("Goals", 0), me.get("Shots", 0), me.get("Assists", 0), me.get("Saves", 0)),
+               0, 2.6 * u, self.w, 0.55 * u, 0.3 * u, light, bold=False)
+        c.line(0.5 * u, 3.2 * u, self.w - 0.5 * u, 3.2 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+        ball = self.kmh_of((game.get("Ball") or {}).get("Speed"))
+        if ball is not None:
+            c.text(T("rl_ball").format(ball), 0.4 * u, 3.25 * u, 4 * u, 0.75 * u, 0.3 * u, muted, bold=False, align=0)
+        c.text(today, 0, 3.25 * u, self.w - 0.4 * u, 0.75 * u, 0.3 * u, light, bold=False, align=2)
+        self.draw_flash(c, now)
+
+    def draw_flash(self, c, now):
+        if self.flash and now < self.flash[0]:
+            u = self.u
+            _, text, col = self.flash
+            c.round_rect(0.3 * u, 1.85 * u, self.w - 0.6 * u, 1.2 * u, 0.35 * u, fill=argb(mix(col, (0, 0, 0), 0.15), 0.95))
+            c.text(text, 0.3 * u, 1.85 * u, self.w - 0.6 * u, 1.2 * u, 0.6 * u, argb(WHITE),
+                   outline=argb((0, 0, 0), 0.4), outline_w=u / 14)
+
+    def tick(self, now):
+        if not self.shown:
+            return
+        flashing = self.flash is not None and now < self.flash[0] + 0.1
+        if (self.dirty and now - self.last_draw > 1 / 15) or now - self.last_draw >= 1.0 or \
+                (flashing and now - self.last_draw > 0.2) or (self.app.animated() and now - self.last_draw > 1 / RGB_FPS):
+            if self.flash and now > self.flash[0]:
+                self.flash = None
+            self.redraw()
+
+    def menu_items(self, add, checked):
+        add(checked(self.app.rl_live_on()), 760, T("rl_live"))
+        add(checked(self.app.rl_borderless_on()), 761, T("rl_borderless"))
+        add(0, 762, T("rl_reset"))
+
+    def menu_command(self, cmd):
+        if cmd in (760, 761):
+            self.app.games_command(cmd - 200)
+        elif cmd == 762:
+            self.app.stats.data.update(rl_w=0, rl_l=0)
+        else:
+            return False
+        self.redraw()
+        return True
+
+
+class DashWidget(ArgbWidget):
+    """Geometry Dash: a little cube that jumps with you and counts your jumps (clicks, Space, Up, W in the game)."""
+    kind = "dash"
+    JUMP_TIME = 0.38
+
+    def __init__(self, app, wid):
+        super().__init__(app, wid)
+        self.jumped_at = -9.0
+        self.spin = 0
+        self.last_draw = 0.0
+        self.build()
+
+    def build(self):
+        u = self.u
+        self.make_canvas(7.0 * u, 3.4 * u)
+        self.place()
+        self.refresh()
+
+    def has_content(self):
+        return any(is_geometry_dash(x) for x in self.app.running)
+
+    def jump(self):
+        now = time.monotonic()
+        if now - self.jumped_at >= self.JUMP_TIME:
+            self.spin = (self.spin + 1) % 4
+        self.jumped_at = now
+        if self.shown:
+            self.redraw()
+
+    def draw(self, c, now):
+        self.last_draw = now
+        u, app = self.u, self.app
+        panel(c, self.w, self.h, u, app, now)
+        st = app.stats.data
+        # the cube (an original little character)
+        t = min(1.0, (now - self.jumped_at) / self.JUMP_TIME)
+        size = 1.5 * u
+        ground = self.h - 0.55 * u
+        lift = math.sin(math.pi * t) * 0.85 * u if t < 1 else 0.0
+        angle = math.radians(90 * ((self.spin - 1) + (t if t < 1 else 1)))
+        cx, cy = 0.45 * u + size / 2 + 0.1 * u, ground - size / 2 - lift
+        c.line(0.35 * u, ground + 0.06 * u, 2.6 * u, ground + 0.06 * u, argb((1, 1, 1), 0.25), max(1, u / 18))
+
+        def pt(dx, dy):
+            ca, sa = math.cos(angle), math.sin(angle)
+            return (cx + dx * ca - dy * sa, cy + dx * sa + dy * ca)
+
+        half = size / 2
+        main = app.glow_color(0.15, now)
+        c.polygon([pt(-half, -half), pt(half, -half), pt(half, half), pt(-half, half)],
+                  fill=argb(main), stroke=argb((0.03, 0.03, 0.05)), width=max(1.5, u / 10))
+        inner = half * 0.72
+        c.polygon([pt(-inner, -inner), pt(inner, -inner), pt(inner, inner), pt(-inner, inner)],
+                  fill=argb(mix(main, WHITE, 0.55)), stroke=argb((0.03, 0.03, 0.05)), width=max(1, u / 16))
+        dark = argb((0.03, 0.03, 0.05))
+        for ox in (-0.13 * size, 0.13 * size):                    # eyes
+            e = 0.055 * size
+            c.polygon([pt(ox - e, -0.1 * size - e), pt(ox + e, -0.1 * size - e), pt(ox + e, -0.1 * size + e),
+                       pt(ox - e, -0.1 * size + e)], fill=dark)
+        c.polygon([pt(-0.14 * size, 0.08 * size), pt(0.14 * size, 0.08 * size), pt(0.14 * size, 0.14 * size),
+                   pt(-0.14 * size, 0.14 * size)], fill=dark)                                      # smile
+
+        # numbers
+        tx = 2.8 * u
+        colors = [argb(app.glow_color(i / 4, now)) for i in range(5)]
+        c.text(f"{st.get('gd_jumps', 0):,}".replace(",", " "), tx, 0.2 * u, self.w - tx - 0.3 * u, 1.3 * u, 1.0 * u,
+               colors, outline=argb((0, 0, 0), 0.6), outline_w=u / 10)
+        c.text(T("gd_jumps"), tx, 1.45 * u, self.w - tx - 0.3 * u, 0.5 * u, 0.32 * u, argb((0.62, 0.62, 0.7)))
+        played = app.gd_seconds
+        line = T("gd_time").format(clock_text(played, hours=False)) if self.has_content() else T("gd_closed")
+        c.text(line, tx, 2.0 * u, self.w - tx - 0.3 * u, 0.5 * u, 0.3 * u, argb((0.85, 0.85, 0.9)), bold=False)
+        c.text(T("gd_total").format(f"{st.get('gd_total', 0):,}".replace(",", " ")), tx, 2.5 * u,
+               self.w - tx - 0.3 * u, 0.5 * u, 0.28 * u, argb((0.62, 0.62, 0.7)), bold=False)
+
+    def tick(self, now):
+        if not self.shown:
+            return
+        moving = now - self.jumped_at < self.JUMP_TIME + 0.05
+        if (moving and now - self.last_draw > 1 / FPS) or now - self.last_draw >= 1.0 or \
+                (self.app.animated() and now - self.last_draw > 1 / RGB_FPS):
+            self.redraw()
+
+    def menu_items(self, add, checked):
+        add(0, 780, T("gd_reset"))
+
+    def menu_command(self, cmd):
+        if cmd == 780:
+            self.app.stats.data["gd_jumps"] = 0
+            self.redraw()
+            return True
+        return False
+
+
 # ---------------------------------------------------------------- text and image widgets
 class TextWidget(ArgbWidget):
     kind = "text"
@@ -3050,7 +3727,10 @@ class HintWidget(ArgbWidget):
 
 
 WIDGET_CLASSES = {"player": PlayerWidget, "stats": StatsWidget, "cat": CatWidget, "text": TextWidget,
-                  "image": ImageWidget}
+                  "image": ImageWidget, "session": SessionWidget, "rocket": RocketWidget, "dash": DashWidget}
+
+
+GD_JUMP_KEYS = {M("L"), S(0x39), E(0x48), S(0x11)}         # click, Space, Up arrow, W
 
 
 # ---------------------------------------------------------------- the app: tray icon, menus, shortcuts, editing
@@ -3066,6 +3746,14 @@ class App:
         self.last_save = time.monotonic()
         self.stats = Stats(cfg)
         media_options["mute_ads"] = cfg["mute_ads"]
+        self.session_start = time.monotonic()
+        self.session_paused_at = None
+        self.running = running_programs()
+        self.game_since = {}
+        self.gd_seconds = 0.0
+        self.fs_game, self.fs_warned = None, set()
+        self.last_scan = time.monotonic()
+        self.note_games(self.last_scan)
 
         hinst = kernel32.GetModuleHandleW(None)
         self._wndproc = WNDPROC(self.wndproc)
@@ -3135,6 +3823,27 @@ class App:
             if ms.right + gap + widget.w <= area.right:
                 return ms.right + gap, kb.bottom - widget.h
             return ms.left, ms.top - widget.h - gap
+        return self.free_spot(widget, area, gap)
+
+    def free_spot(self, widget, area, gap):
+        """First place (from the bottom left, row by row upwards) that doesn't cover another widget."""
+        taken = []
+        for w in self.widgets.values():
+            if w is widget or not w.wcfg.get("visible", True) or w.wcfg.get("x") is None:
+                continue
+            r = w.rect()
+            taken.append((r.left - gap, r.top - gap, r.right + gap, r.bottom + gap))
+        m, step = int(20 * self.dpi), max(8, int(16 * self.dpi))
+        y = area.bottom - widget.h - m
+        while y >= area.top + m:
+            x = area.left + m
+            while x + widget.w <= area.right - m:
+                hit = next((t for t in taken if x < t[2] and x + widget.w > t[0] and y < t[3] and y + widget.h > t[1]),
+                           None)
+                if hit is None:
+                    return x, y
+                x = max(x + step, hit[2])
+            y -= step
         return (area.left + area.right - widget.w) // 2, (area.top + area.bottom - widget.h) // 3
 
     def refresh_all(self):
@@ -3171,6 +3880,8 @@ class App:
         self.cfg["visible"] = True
         self.create_widget(wid)
         save_settings(self.cfg)
+        if not self.editing:                  # straight into moving mode, so the new widget can be dragged
+            self.toggle_edit()
 
     def choose_image(self, wcfg, wid=None):
         path = pick_file(T("image_title"), T("image_filter"), "*.png;*.jpg;*.jpeg;*.gif;*.bmp")
@@ -3203,6 +3914,113 @@ class App:
             except OSError:
                 pass
         save_settings(self.cfg)
+
+    # ---------- games
+    def session_seconds(self, now):
+        return (self.session_paused_at or now) - self.session_start
+
+    def note_games(self, now):
+        for exe in KNOWN_GAMES:
+            if exe in self.running:
+                self.game_since.setdefault(exe, now)
+            else:
+                self.game_since.pop(exe, None)
+        for exe in self.running:
+            if is_geometry_dash(exe):
+                self.game_since.setdefault(exe, now)
+        for exe in list(self.game_since):
+            if exe not in self.running:
+                del self.game_since[exe]
+
+    def current_game(self):
+        if not self.game_since:
+            return None
+        fg = foreground_program()
+        exe = fg if fg in self.game_since else min(self.game_since, key=self.game_since.get)
+        name = KNOWN_GAMES.get(exe) or ("Geometry Dash" if is_geometry_dash(exe) else exe)
+        return name, self.game_since[exe]
+
+    def scan_games(self, now):
+        """Every 2 seconds: which games run, Rocket League data on/off, exclusive fullscreen check."""
+        elapsed, self.last_scan = now - self.last_scan, now
+        self.running = running_programs()
+        if any(is_geometry_dash(x) for x in self.running):
+            self.gd_seconds += elapsed
+        self.note_games(now)
+        rocket = next((w for w in self.widgets.values() if w.kind == "rocket"), None)
+        want = bool(rocket and self.cfg["visible"] and rocket.wcfg.get("visible", True)
+                    and ("rocketleague.exe" in self.running or rocket.connected))
+        if want:
+            rl_wanted.set()
+        else:
+            rl_wanted.clear()
+        for w in self.widgets.values():
+            if w.kind in ("rocket", "dash"):
+                w.refresh()
+        state = ctypes.c_int(0)
+        try:
+            shell32.SHQueryUserNotificationState(ctypes.byref(state))
+        except Exception:
+            return
+        if state.value == 3:                     # QUNS_RUNNING_D3D_FULL_SCREEN: nothing can be drawn over it
+            fg = foreground_program()
+            if fg:
+                self.fs_game = fg
+        elif self.fs_game:
+            exe, self.fs_game = self.fs_game, None
+            if exe not in self.fs_warned and self.cfg["visible"]:
+                self.fs_warned.add(exe)
+                if exe == "rocketleague.exe":
+                    self.balloon(T("fs_title"), T("fs_text_rl"))
+                else:
+                    name = KNOWN_GAMES.get(exe) or os.path.splitext(exe)[0]
+                    self.balloon(T("fs_title"), T("fs_text").format(name))
+
+    def rl_live_rate(self):
+        try:
+            return int(float(read_ini(os.path.join(rl_config_dir(), RL_STATS_INI), RL_STATS_SECTION)
+                             .get("PacketSendRate", 0)))
+        except ValueError:
+            return 0
+
+    def rl_live_on(self):
+        return self.rl_live_rate() >= 10
+
+    def rl_borderless_on(self):
+        v = read_ini(os.path.join(rl_config_dir(), RL_VIDEO_INI), "SystemSettings")
+        return v.get("Borderless", "").lower() == "true" or v.get("Fullscreen", "").lower() == "false"
+
+    def games_command(self, cmd):
+        """560 = Rocket League live data on/off, 561 = borderless / exclusive fullscreen."""
+        folder = rl_config_dir()
+        if not os.path.isdir(folder):
+            user32.MessageBoxW(None, T("rl_no_config"), APP_NAME, 0x30)
+            return
+        if "rocketleague.exe" in running_programs():
+            user32.MessageBoxW(None, T("rl_close_first"), APP_NAME, 0x30)
+            return
+        try:
+            if cmd == 560:
+                on = not self.rl_live_on()
+                path = os.path.join(folder, RL_STATS_INI)
+                changes = {"PacketSendRate": 30 if on else 0}
+                if not os.path.exists(path):
+                    changes = {"Port": 49123, **changes}
+                write_ini(path, RL_STATS_SECTION, changes)
+                if on:
+                    user32.MessageBoxW(None, T("rl_live_done"), APP_NAME, 0x40)
+            elif cmd == 561:
+                path = os.path.join(folder, RL_VIDEO_INI)
+                if not os.path.exists(path):
+                    user32.MessageBoxW(None, T("rl_no_config"), APP_NAME, 0x30)
+                    return
+                on = not self.rl_borderless_on()
+                write_ini(path, "SystemSettings", {"Fullscreen": "False" if on else "True",
+                                                   "Borderless": "True" if on else "False"})
+                if on:
+                    user32.MessageBoxW(None, T("rl_border_done"), APP_NAME, 0x40)
+        except OSError as e:
+            user32.MessageBoxW(None, str(e), APP_NAME, 0x30)
 
     # ---------- colors shared by all widgets
     def glow_color(self, xfrac, now):
@@ -3261,6 +4079,10 @@ class App:
                     pl = self.player
                     if pl:
                         pl.set_state(val)
+                elif kind == "rl":
+                    for w in self.widgets.values():
+                        if w.kind == "rocket":
+                            w.on_rl(*val)
                 elif kind == "sound_error":
                     self.sound_failed(val)
                 elif kind == "wheel":
@@ -3282,6 +4104,8 @@ class App:
             if self.ticks % FPS == 0:                            # once a second
                 for w in self.widgets.values():
                     w.keep_on_top()
+            if self.ticks % (2 * FPS) == 0:
+                self.scan_games(now)
                 if now - self.last_save > 30:                    # keep today's stats safe
                     self.last_save = now
                     save_settings(self.cfg)
@@ -3292,6 +4116,12 @@ class App:
                 self.finish_capture(kid)
             self.held.add(kid)
             self.stats.add(kid)
+            if kid in GD_JUMP_KEYS and is_geometry_dash(foreground_program()):
+                self.stats.data["gd_jumps"] = self.stats.data.get("gd_jumps", 0) + 1
+                self.stats.data["gd_total"] = self.stats.data.get("gd_total", 0) + 1
+                for w in self.widgets.values():
+                    if w.kind == "dash":
+                        w.jump()
         elif kind == "up":
             self.held.discard(kid)
         for w in self.widgets.values():
@@ -3372,9 +4202,9 @@ class App:
         return cmd
 
     def show_tray_menu(self):
-        global sound_enabled
+        global sound_enabled, mouse_sound_enabled
         cfg, add = self.cfg, user32.AppendMenuW
-        menu, snd, vol, fx, col, wmenu = (user32.CreatePopupMenu() for _ in range(6))
+        menu, snd, vol, fx, col, wmenu, look, games = (user32.CreatePopupMenu() for _ in range(8))
         checked = lambda on: 0x8 if on else 0
 
         add(snd, checked(cfg["sound"]), 103, T("sound_on"))
@@ -3390,6 +4220,14 @@ class App:
         for i, v in enumerate(volumes):
             add(vol, checked(abs(cfg["volume"] - v) < 0.01), 220 + i, f"{int(v * 100)} %")
         add(snd, 0x10, vol, T("click_volume"))
+        add(snd, checked(cfg["mouse_sound"]), 212, T("mouse_sound"))
+        keys_widgets = [w for w in self.widgets.values() if isinstance(w, KeysWidget)]
+        styles = {w.style for w in keys_widgets}
+        for i, st in enumerate(KEY_STYLES):
+            add(look, checked(styles == {st}), 450 + i, T("st_" + st))
+        rate = self.rl_live_rate()
+        add(games, checked(rate >= 10), 560, T("rl_live") + (T("rl_live_rate").format(rate) if 0 < rate < 10 else ""))
+        add(games, checked(self.rl_borderless_on()), 561, T("rl_borderless"))
         for i, name in enumerate(EFFECTS):
             add(fx, checked(cfg["effect"] == name), 300 + i, T("fx_" + name))
         color_names = list(COLORS)
@@ -3440,7 +4278,9 @@ class App:
         add(menu, 0x10, snd, T("sound"))
         add(menu, 0x10, fx, T("effect"))
         add(menu, 0x10, col, T("color"))
+        add(menu, 0x10, look, T("style"))
         add(menu, 0x10, music, T("media"))
+        add(menu, 0x10, games, T("games"))
         add(menu, 0x800, 0, None)
         if FROZEN:
             add(menu, checked(autostart_enabled()), 104, T("autostart"))
@@ -3469,6 +4309,17 @@ class App:
             self.set_sound("custom")
         elif cmd == 211:
             self.upload_sound()
+        elif cmd == 212:
+            cfg["mouse_sound"] = mouse_sound_enabled = not cfg["mouse_sound"]
+            save_settings(cfg)
+        elif 450 <= cmd < 450 + len(KEY_STYLES):
+            for w in keys_widgets:
+                w.wcfg["style"] = KEY_STYLES[cmd - 450]
+                w.build()
+            save_settings(cfg)
+        elif cmd in (560, 561):
+            self.games_command(cmd)
+            self.refresh_all()
         elif 220 <= cmd < 220 + len(volumes):
             cfg["volume"] = volumes[cmd - 220]
             self.set_sound(cfg["sound_choice"])
@@ -3696,7 +4547,7 @@ def show_help():
 
 
 def main():
-    global overlay_hwnd, sound_enabled
+    global overlay_hwnd, sound_enabled, mouse_sound_enabled
     mutex = kernel32.CreateMutexW(None, False, "KeyboardSound_SingleInstance")
     if ctypes.get_last_error() == 183:                   # ERROR_ALREADY_EXISTS
         user32.MessageBoxW(None, T("already"), APP_NAME, 0x40)
@@ -3713,6 +4564,7 @@ def main():
 
     cfg = load_settings()
     sound_enabled = cfg["sound"]
+    mouse_sound_enabled = cfg["mouse_sound"]
     try:
         audio = start(audio_worker, sound_path(cfg), cfg["volume"])
     except Exception:                                    # e.g. own sound deleted -> use the default one
@@ -3722,6 +4574,7 @@ def main():
     overlay_hwnd = app.hwnd
     start(input_loop, True)
     start(media_worker)
+    start(rl_worker)
 
     signal.signal(signal.SIGINT, lambda *_: user32.PostQuitMessage(0))
     print("Keyboard Sound is running.  Ctrl+Alt+F11 = move widgets, Ctrl+Alt+F12 (or Ctrl+C here) = quit")
