@@ -10,11 +10,15 @@ Tray:   right-click the tray icon for options
 Move:   Ctrl+Alt+F11  -> drag the overlay, scroll to resize, right-click for options,
                          Ctrl+Alt+F11 again to lock it (position is saved)
 Stop:   Ctrl+Alt+F12 anywhere, tray icon -> Quit, or Ctrl+C in the console
+Music:  Ctrl+Alt+Down play/pause, Ctrl+Alt+Left/Right previous/next,
+        Ctrl+Alt+Shift+Left/Right seek (works with Spotify, YouTube, ... - needs the
+        "winrt-Windows.Media.Control" and "winrt-Windows.Storage.Streams" packages when run from source)
 
 Build the .exe:  build.bat
 """
 
 import array
+import copy
 import colorsys
 import ctypes
 import json
@@ -28,6 +32,8 @@ import sys
 import threading
 import time
 import wave
+import importlib.util
+from datetime import datetime, timezone
 import winreg
 from ctypes import wintypes
 
@@ -63,6 +69,15 @@ DEFAULTS = {
     "volume": 1.0,               # 0.25 .. 1.0
     "effect": "wave",            # wave, static, breathe, ripple, reactive
     "color": "rainbow",          # rainbow or one of COLORS below
+    "media_widget": True,        # now-playing panel (Spotify, YouTube, ...) above the keyboard
+    "seek_step": 10,             # seconds to jump with the seek shortcuts
+    "binds": {                   # [modifiers, virtual key]; modifiers: Alt=1, Ctrl=2, Shift=4, Win=8
+        "play": [3, 0x28],       # Ctrl+Alt+Down
+        "next": [3, 0x27],       # Ctrl+Alt+Right
+        "prev": [3, 0x25],       # Ctrl+Alt+Left
+        "fwd": [7, 0x27],        # Ctrl+Alt+Shift+Right
+        "back": [7, 0x25],       # Ctrl+Alt+Shift+Left
+    },
     "welcomed": False,           # first-start tip already shown
 }
 ISO_LAYOUT = True      # True = European keyboard (tall Enter), False = US
@@ -85,6 +100,8 @@ COLORS = {
     "pink": (1.0, 0.3, 0.75), "white": (1.0, 1.0, 1.0),
 }
 CUSTOM_MAX_SECONDS = 2.0
+MEDIA_ACTIONS = ["play", "next", "prev", "fwd", "back"]
+MEDIA_OK = importlib.util.find_spec("winrt.windows.media.control") is not None
 
 HOTKEY_EDIT = 0x57     # F11 (with Ctrl+Alt)
 HOTKEY_QUIT = 0x58     # F12 (with Ctrl+Alt)
@@ -117,6 +134,15 @@ VLASTNÍ ZVUK
   Menu > Zvuk > Nahrát vlastní zvuk...
   (wav, mp3, m4a, ogg, flac, wma - použijí se první 2 sekundy)
 
+HUDBA (SPOTIFY, YOUTUBE...)
+  Ctrl+Alt+Šipka dolů    přehrát / pauza
+  Ctrl+Alt+Šipka vpravo  další skladba
+  Ctrl+Alt+Šipka vlevo   předchozí skladba
+  Ctrl+Alt+Shift+Šipky   posunout skladbu o 10 s
+  Nad klávesnicí je přehrávač: klikni na tlačítka,
+  nebo na lištu a skladba skočí na to místo.
+  Zkratky změníš v menu > Hudba > Změnit zkratky.
+
 SKRÝT KLÁVESNICI
   Menu > Zobrazit klávesnici (zvuk hraje dál)
 
@@ -148,6 +174,15 @@ MOVE AND RESIZE
 YOUR OWN SOUND
   Menu > Sound > Load your own sound...
   (wav, mp3, m4a, ogg, flac, wma - the first 2 seconds are used)
+
+MUSIC (SPOTIFY, YOUTUBE...)
+  Ctrl+Alt+Down arrow    play / pause
+  Ctrl+Alt+Right arrow   next track
+  Ctrl+Alt+Left arrow    previous track
+  Ctrl+Alt+Shift+Arrows  seek 10 s
+  There's a player above the keyboard: click the buttons,
+  or click the bar to jump to that point of the song.
+  Change the shortcuts in menu > Music > Change shortcuts.
 
 HIDE THE KEYBOARD
   Menu > Show keyboard (the sound keeps playing)
@@ -187,6 +222,14 @@ TEXTS = {
         "bottom-left": "vlevo dole", "bottom-right": "vpravo dole",
         "done": "Hotovo (zamknout pozici)", "quit_plain": "Ukončit", "help_title": "Keyboard Sound - nápověda",
         "help_text": HELP_CS,
+        "media": "Hudba (Spotify, YouTube...)", "media_widget": "Zobrazit přehrávač",
+        "ma_play": "Přehrát / pauza", "ma_next": "Další skladba", "ma_prev": "Předchozí skladba",
+        "ma_fwd": "Posunout vpřed", "ma_back": "Posunout zpět",
+        "change_binds": "Změnit zkratky", "reset_binds": "Obnovit výchozí zkratky", "seek_step": "Krok posunu",
+        "bind_prompt": "Stiskni novou zkratku pro: {}\n(s Ctrl / Alt / Shift, nebo F-klávesu.  Esc = zrušit)",
+        "bind_busy": "Zkratku {} už používá jiný program.\nZkus jinou.", "bind_taken": "obsazeno",
+        "media_missing": "Ovládání hudby není k dispozici", "space": "Mezerník",
+        "nothing_playing": "Nic nehraje", "no_seek": "Tenhle přehrávač neumí posouvat",
     },
     "en": {
         "move": "Move / resize\tCtrl+Alt+F11", "show": "Show keyboard",
@@ -212,6 +255,14 @@ TEXTS = {
         "top-left": "top left", "top-right": "top right", "bottom-left": "bottom left", "bottom-right": "bottom right",
         "done": "Done (lock position)", "quit_plain": "Quit", "help_title": "Keyboard Sound - help",
         "help_text": HELP_EN,
+        "media": "Music (Spotify, YouTube...)", "media_widget": "Show player",
+        "ma_play": "Play / pause", "ma_next": "Next track", "ma_prev": "Previous track",
+        "ma_fwd": "Seek forward", "ma_back": "Seek back",
+        "change_binds": "Change shortcuts", "reset_binds": "Reset shortcuts", "seek_step": "Seek step",
+        "bind_prompt": "Press a new shortcut for: {}\n(with Ctrl / Alt / Shift, or an F-key.  Esc = cancel)",
+        "bind_busy": "The shortcut {} is already used by another program.\nTry a different one.",
+        "bind_taken": "taken", "media_missing": "Music control is not available", "space": "Space",
+        "nothing_playing": "Nothing is playing", "no_seek": "This player can't seek",
     },
 }
 LANG = ui_language()
@@ -858,7 +909,7 @@ INK = (0.05, 0.05, 0.05)
 
 
 def load_settings():
-    cfg = dict(DEFAULTS)
+    cfg = copy.deepcopy(DEFAULTS)
     try:
         with open(SETTINGS_FILE, encoding="utf-8-sig") as f:
             cfg.update({k: v for k, v in json.load(f).items() if k in DEFAULTS})
@@ -874,6 +925,149 @@ def save_settings(cfg):
             json.dump(cfg, f, indent=2)
     except OSError:
         pass
+
+
+# ---------------------------------------------------------------- music control (Spotify, YouTube, ... via Windows)
+media_commands = queue.Queue()    # ("play" | "next" | "prev" | "seek_by" | "seek_to", value), None = stop
+
+
+def pick_session(manager):
+    """Spotify if it's open, otherwise whatever Windows thinks is playing right now."""
+    sessions = list(manager.get_sessions())
+    for session in sessions:
+        if "spotify" in (session.source_app_user_model_id or "").lower():
+            return session
+    return manager.get_current_session() or (sessions[0] if sessions else None)
+
+
+def timeline_now(timeline, playing):
+    pos, end = timeline.position.total_seconds(), timeline.end_time.total_seconds()
+    updated = timeline.last_updated_time
+    if playing and updated and updated.year > 2000:          # players only report now and then
+        pos += max(0.0, (datetime.now(timezone.utc) - updated).total_seconds())
+    return (min(pos, end) if end > 0 else pos), end
+
+
+async def read_cover(props):
+    from winrt.windows.storage.streams import DataReader
+    try:
+        if props.thumbnail is None:
+            return None
+        stream = await props.thumbnail.open_read_async()
+        if not stream.size or stream.size > 8_000_000:
+            return None
+        reader = DataReader(stream.get_input_stream_at(0))
+        n = await reader.load_async(stream.size)
+        data = bytearray(n)
+        reader.read_bytes(data)
+        return bytes(data)
+    except Exception:
+        return None
+
+
+async def run_media_command(session, cmd, value):
+    from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessionPlaybackStatus as Status
+    if cmd == "play":
+        await session.try_toggle_play_pause_async()
+    elif cmd == "next":
+        await session.try_skip_next_async()
+    elif cmd == "prev":
+        await session.try_skip_previous_async()
+    elif cmd in ("seek_by", "seek_to"):
+        playing = session.get_playback_info().playback_status == Status.PLAYING
+        pos, end = timeline_now(session.get_timeline_properties(), playing)
+        target = pos + value if cmd == "seek_by" else value
+        target = max(0.0, min(target, end - 1) if end > 1 else target)
+        await session.try_change_playback_position_async(int(target * 10_000_000))
+
+
+async def media_main():
+    import asyncio
+    from winrt.windows.media.control import (GlobalSystemMediaTransportControlsSessionManager as Manager,
+                                             GlobalSystemMediaTransportControlsSessionPlaybackStatus as Status)
+    manager = await Manager.request_async()
+    cover_key, cover = None, None
+    while True:
+        session = pick_session(manager)
+        while True:                                       # do what the shortcuts / buttons asked for
+            try:
+                cmd = media_commands.get_nowait()
+            except queue.Empty:
+                break
+            if cmd is None:
+                return
+            if session:
+                try:
+                    await run_media_command(session, *cmd)
+                except Exception:
+                    pass
+        state = None
+        if session:
+            try:
+                props = await session.try_get_media_properties_async()
+                info = session.get_playback_info()
+                playing = info.playback_status == Status.PLAYING
+                pos, end = timeline_now(session.get_timeline_properties(), playing)
+                key = (session.source_app_user_model_id, props.title, props.artist)
+                if key != cover_key:
+                    cover_key, cover = key, await read_cover(props)
+                state = {"app": session.source_app_user_model_id or "", "title": props.title or "",
+                         "artist": props.artist or props.album_artist or "", "playing": playing,
+                         "pos": pos, "end": end, "t": time.monotonic(), "cover": cover, "cover_key": key,
+                         "can_seek": bool(info.controls.is_playback_position_enabled) and end > 0}
+            except Exception:
+                state = None
+        ui_events.put(("media", state))
+        wake_overlay()
+        for _ in range(10):                               # check again in 0.5 s, or sooner for a command
+            if not media_commands.empty():
+                break
+            await asyncio.sleep(0.05)
+
+
+def media_worker(ready):
+    ready.append(None)
+    if not MEDIA_OK:
+        return
+    import asyncio
+    ctypes.windll.ole32.CoInitializeEx(None, 0)
+    try:
+        asyncio.run(media_main())
+    except Exception as e:
+        print("music control stopped:", e)
+
+
+# ---------------------------------------------------------------- shortcuts
+MOD_NAMES = ((2, "Ctrl"), (1, "Alt"), (4, "Shift"), (8, "Win"))
+MODIFIER_IDS = {("vk", v): bit for v, bit in ((0xA0, 4), (0xA1, 4), (0xA2, 2), (0xA3, 2), (0xA4, 1), (0xA5, 1),
+                                              (0x5B, 8), (0x5C, 8))}
+VK_NAMES = {0x25: "←", 0x26: "↑", 0x27: "→", 0x28: "↓", 0x21: "PgUp", 0x22: "PgDn", 0x23: "End", 0x24: "Home",
+            0x2D: "Ins", 0x2E: "Del", 0x0D: "Enter", 0x08: "Backspace", 0x09: "Tab", 0x13: "Pause",
+            0xB0: "Media Next", 0xB1: "Media Prev", 0xB3: "Media Play"}
+
+
+def bind_text(mods, vk):
+    if vk == 0x20:
+        name = T("space")
+    elif vk in VK_NAMES:
+        name = VK_NAMES[vk]
+    elif 0x70 <= vk <= 0x87:
+        name = f"F{vk - 0x6F}"
+    elif 0x30 <= vk <= 0x39 or 0x41 <= vk <= 0x5A:
+        name = chr(vk)
+    else:
+        buf = ctypes.create_unicode_buffer(64)
+        sc = user32.MapVirtualKeyW(vk, 0)
+        name = buf.value if ctypes.windll.user32.GetKeyNameTextW(ctypes.c_long(sc << 16), buf, 64) else f"#{vk}"
+    return "+".join([n for bit, n in MOD_NAMES if mods & bit] + [name])
+
+
+def vk_from_key_id(kid):
+    if kid[0] == "vk":
+        return kid[1]
+    if kid[0] == "sc":
+        return user32.MapVirtualKeyW(kid[1] | (0xE000 if kid[2] else 0), 3)     # MAPVK_VSC_TO_VK_EX
+    return 0
 
 
 # ---------------------------------------------------------------- overlay (plain Win32/GDI drawing: fast)
@@ -965,6 +1159,62 @@ user32.MessageBoxW.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR
 kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
 kernel32.CreateMutexW.restype = wintypes.HANDLE
 WM_TRAY = 0x8001
+WM_HOTKEY, WM_MOVE = 0x0312, 0x0003
+user32.RegisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.UINT, wintypes.UINT]
+user32.UnregisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int]
+gdi32.Ellipse.argtypes = [HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+gdi32.Rectangle.argtypes = [HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+
+
+class TRACKMOUSEEVENT(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.DWORD), ("dwFlags", wintypes.DWORD), ("hwndTrack", wintypes.HWND),
+                ("dwHoverTime", wintypes.DWORD)]
+
+
+class GdiplusStartupInput(ctypes.Structure):
+    _fields_ = [("GdiplusVersion", ctypes.c_uint32), ("DebugEventCallback", ctypes.c_void_p),
+                ("SuppressBackgroundThread", wintypes.BOOL), ("SuppressExternalCodecs", wintypes.BOOL)]
+
+
+gdiplus = ctypes.WinDLL("gdiplus")
+shlwapi = ctypes.WinDLL("shlwapi")
+shlwapi.SHCreateMemStream.argtypes = [ctypes.c_char_p, wintypes.UINT]
+shlwapi.SHCreateMemStream.restype = ctypes.c_void_p
+_gdiplus_token = ctypes.c_size_t()
+
+
+class Cover:
+    """Album cover decoded with GDI+ (jpg / png), drawn center-cropped into a square."""
+
+    def __init__(self, data):
+        if not _gdiplus_token.value:
+            gdiplus.GdiplusStartup(ctypes.byref(_gdiplus_token), ctypes.byref(GdiplusStartupInput(1, None, 0, 0)), None)
+        self.stream = ctypes.c_void_p(shlwapi.SHCreateMemStream(data, len(data)))
+        self.image = ctypes.c_void_p()
+        if not self.stream.value or gdiplus.GdipCreateBitmapFromStream(self.stream, ctypes.byref(self.image)):
+            self.close()
+            raise OSError("cover can't be decoded")
+        w, h = ctypes.c_uint(), ctypes.c_uint()
+        gdiplus.GdipGetImageWidth(self.image, ctypes.byref(w))
+        gdiplus.GdipGetImageHeight(self.image, ctypes.byref(h))
+        self.w, self.h = w.value, h.value
+
+    def draw(self, hdc, x, y, size):
+        g = ctypes.c_void_p()
+        gdiplus.GdipCreateFromHDC(wintypes.HDC(hdc), ctypes.byref(g))
+        gdiplus.GdipSetInterpolationMode(g, 7)                     # high quality bicubic
+        side = min(self.w, self.h)
+        gdiplus.GdipDrawImageRectRectI(g, self.image, x, y, size, size, (self.w - side) // 2, (self.h - side) // 2,
+                                       side, side, 2, None, None, None)
+        gdiplus.GdipDeleteGraphics(g)
+
+    def close(self):
+        if self.image.value:
+            gdiplus.GdipDisposeImage(self.image)
+            self.image = ctypes.c_void_p()
+        if self.stream.value:
+            com(self.stream, 2, restype=ctypes.c_ulong)
+            self.stream = ctypes.c_void_p()
 
 
 class OPENFILENAMEW(ctypes.Structure):
@@ -1050,6 +1300,9 @@ class Overlay:
         self.fonts, self.bitmaps = [], []
         self.base_dc = self.back_dc = None
         self.ripples = []            # (x, y, start time) of "ripple" effect rings
+        self.widget = None           # music player panel (created after the keyboard)
+        self.capturing = None        # media action waiting for a new shortcut
+        self.bind_ok = {}
 
         hinst = kernel32.GetModuleHandleW(None)
         self._wndproc = WNDPROC(self.wndproc)
@@ -1064,6 +1317,8 @@ class Overlay:
         self.build()
         if cfg["visible"]:
             user32.ShowWindow(self.hwnd, 4)                      # SW_SHOWNOACTIVATE
+        self.widget = MediaWidget(self)
+        self.register_binds()
         user32.SetTimer(self.hwnd, 1, int(1000 / FPS), None)
         self.add_tray_icon()
         if not cfg["welcomed"]:
@@ -1093,9 +1348,63 @@ class Overlay:
         nid.uFlags, nid.szInfoTitle, nid.szInfo, nid.dwInfoFlags = 0x10, title, text, 0x1
         shell32.Shell_NotifyIconW(1, ctypes.byref(nid))          # NIM_MODIFY
 
+    # ---------- music control
+    def binds(self):
+        return {**DEFAULTS["binds"], **(self.cfg.get("binds") or {})}
+
+    def register_binds(self):
+        for i in range(len(MEDIA_ACTIONS)):
+            user32.UnregisterHotKey(self.hwnd, 1000 + i)
+        if not MEDIA_OK or self.capturing:
+            return
+        binds = self.binds()
+        for i, act in enumerate(MEDIA_ACTIONS):
+            mods, vk = binds[act]
+            norepeat = 0 if act in ("fwd", "back") else 0x4000        # holding seek keeps seeking
+            self.bind_ok[act] = bool(user32.RegisterHotKey(self.hwnd, 1000 + i, mods | norepeat, vk))
+
+    def media_action(self, act):
+        if act in ("fwd", "back"):
+            delta = self.cfg["seek_step"] * (1 if act == "fwd" else -1)
+            media_commands.put(("seek_by", delta))
+            self.widget.nudge(delta)
+        else:
+            media_commands.put((act, None))
+            if act == "play":
+                self.widget.toggle_playing()
+
+    def start_capture(self, act):
+        self.capturing = act
+        self.register_binds()                                     # pause all shortcuts while choosing
+        self.widget.prompt = T("bind_prompt").format(T("ma_" + act))
+        self.widget.refresh()
+
+    def finish_capture(self, kid):
+        vk = vk_from_key_id(kid)
+        mods = 0
+        for held in self.held:
+            mods |= MODIFIER_IDS.get(held, 0)
+        if not mods and vk != 0x1B and not (0x70 <= vk <= 0x87 or 0x60 <= vk <= 0x6F or 0xA6 <= vk <= 0xB7
+                                            or vk in (0x13, 0x2D, 0x24, 0x23, 0x21, 0x22, 0x91)):
+            return                     # a plain letter would block typing -> wait for a combo with Ctrl/Alt/...
+        act, self.capturing = self.capturing, None
+        self.widget.prompt = None
+        if vk and not (vk == 0x1B and not mods):                  # Esc = cancel
+            old = self.cfg.get("binds") or {}
+            self.cfg["binds"] = {**self.binds(), act: [mods, vk]}
+            self.register_binds()
+            if not self.bind_ok.get(act):
+                user32.MessageBoxW(None, T("bind_busy").format(bind_text(mods, vk)), APP_NAME, 0x30)
+                self.cfg["binds"] = old
+            save_settings(self.cfg)
+        self.register_binds()
+        self.widget.refresh()
+
     def set_visible(self, on):
         self.cfg["visible"] = on
         user32.ShowWindow(self.hwnd, 4 if on else 0)
+        if self.widget:
+            self.widget.refresh()
         if on:
             self.render(force_base=True)
         save_settings(self.cfg)
@@ -1131,6 +1440,29 @@ class Overlay:
         add(menu, 0x10, snd, T("sound"))
         add(menu, 0x10, fx, T("effect"))
         add(menu, 0x10, col, T("color"))
+        music, keys_menu, steps = (user32.CreatePopupMenu() for _ in range(3))
+        binds = self.binds()
+        if MEDIA_OK:
+            add(music, checked(cfg["media_widget"]), 500, T("media_widget"))
+            add(music, 0x800, 0, None)
+            for i, act in enumerate(MEDIA_ACTIONS):
+                label = T("ma_" + act)
+                if act in ("fwd", "back"):
+                    label += f" ({'+' if act == 'fwd' else '-'}{cfg['seek_step']} s)"
+                shortcut = bind_text(*binds[act]) + ("" if self.bind_ok.get(act, True) else f" ({T('bind_taken')})")
+                add(music, 0, 510 + i, f"{label}\t{shortcut}")
+                add(keys_menu, 0, 520 + i, f"{T('ma_' + act)}:  {bind_text(*binds[act])}...")
+            add(keys_menu, 0x800, 0, None)
+            add(keys_menu, 0, 530, T("reset_binds"))
+            add(music, 0x800, 0, None)
+            add(music, 0x10, keys_menu, T("change_binds"))
+            seek_steps = (5, 10, 15, 30)
+            for i, v in enumerate(seek_steps):
+                add(steps, checked(cfg["seek_step"] == v), 540 + i, f"{v} s")
+            add(music, 0x10, steps, T("seek_step"))
+        else:
+            add(music, 0x1, 0, T("media_missing"))                # greyed out
+        add(menu, 0x10, music, T("media"))
         add(menu, 0x800, 0, None)
         if FROZEN:
             add(menu, checked(autostart_enabled()), 104, T("autostart"))
@@ -1171,6 +1503,21 @@ class Overlay:
         elif 400 <= cmd < 400 + len(color_names):
             cfg["color"] = color_names[cmd - 400]
             self.effect_changed()
+        elif cmd == 500:
+            cfg["media_widget"] = not cfg["media_widget"]
+            save_settings(cfg)
+            self.widget.refresh()
+        elif 510 <= cmd < 510 + len(MEDIA_ACTIONS):
+            self.media_action(MEDIA_ACTIONS[cmd - 510])
+        elif 520 <= cmd < 520 + len(MEDIA_ACTIONS):
+            self.start_capture(MEDIA_ACTIONS[cmd - 520])
+        elif cmd == 530:
+            cfg["binds"] = copy.deepcopy(DEFAULTS["binds"])
+            save_settings(cfg)
+            self.register_binds()
+        elif 540 <= cmd < 544:
+            cfg["seek_step"] = (5, 10, 15, 30)[cmd - 540]
+            save_settings(cfg)
 
     # ---------- sound & effect settings
     def set_sound(self, choice):
@@ -1206,6 +1553,8 @@ class Overlay:
 
     def effect_changed(self):
         self.ripples.clear()
+        if self.widget:
+            self.widget.refresh()
         save_settings(self.cfg)
         self.render(force_base=True)
 
@@ -1286,6 +1635,8 @@ class Overlay:
         else:
             x, y = int(cfg["x"]), int(cfg["y"])
         user32.SetWindowPos(self.hwnd, wintypes.HWND(-1), x, y, self.w, self.h, 0x10)   # TOPMOST, NOACTIVATE
+        if self.widget:
+            self.widget.build()
 
     # ---------- drawing
     def glow_color(self, xfrac, now):
@@ -1478,6 +1829,11 @@ class Overlay:
                 self.remember_position()
                 save_settings(self.cfg)
                 return 0
+            if msg == WM_MOVE and self.widget:             # player follows the keyboard while dragging
+                self.widget.follow()
+            if msg == WM_HOTKEY and 1000 <= wparam < 1000 + len(MEDIA_ACTIONS):
+                self.media_action(MEDIA_ACTIONS[wparam - 1000])
+                return 0
             if msg == WM_TRAY:
                 if lparam & 0xFFFF in (0x0202, 0x0205):           # left / right click on the tray icon
                     self.show_tray_menu()
@@ -1496,7 +1852,10 @@ class Overlay:
         try:
             while True:
                 kind, val = ui_events.get_nowait()
-                if kind == "down":
+                if kind == "down" and self.capturing and val not in MODIFIER_IDS and val[0] != "m":
+                    self.finish_capture(val)
+                    self.held.add(val)
+                elif kind == "down":
                     self.held.add(val)
                     self.active.update(self.by_id.get(val, ()))
                     if self.cfg["effect"] == "ripple":
@@ -1509,6 +1868,8 @@ class Overlay:
                         self.add_ripple(val)
                 elif kind == "sound_error":
                     self.sound_failed(val)
+                elif kind == "media":
+                    self.widget.set_state(val)
                 elif kind == "wheel":
                     self.on_wheel(val)
                 elif kind == "edit":
@@ -1520,6 +1881,7 @@ class Overlay:
             pass
         if not self.cfg["visible"]:
             return
+        self.widget.update()
         self.render()
         if from_timer:
             self.ticks += 1
@@ -1528,6 +1890,7 @@ class Overlay:
                     self.build_layers()
                     self.render(force_base=True)
                 user32.SetWindowPos(self.hwnd, wintypes.HWND(-1), 0, 0, 0, 0, 0x1 | 0x2 | 0x10)
+                self.widget.keep_on_top()
 
     def refresh_labels(self):
         """Show the characters of your current keyboard layout (e.g. Czech ě š č)."""
@@ -1638,7 +2001,291 @@ class Overlay:
     def close(self):
         if self.editing:
             self.toggle_edit()
+        for i in range(len(MEDIA_ACTIONS)):
+            user32.UnregisterHotKey(self.hwnd, 1000 + i)
+        if self.widget:
+            self.widget.close()
         shell32.Shell_NotifyIconW(2, ctypes.byref(self.tray_data()))   # NIM_DELETE
+        user32.ReleaseDC(self.hwnd, self.screen_dc)
+        user32.DestroyWindow(self.hwnd)
+        ctypes.windll.user32.UnregisterClassW(ctypes.c_wchar_p(self.class_name),
+                                              ctypes.c_void_p(kernel32.GetModuleHandleW(None)))
+
+
+# ---------------------------------------------------------------- now-playing panel
+class MediaWidget:
+    """Small player above the keyboard: cover, title, artist, buttons and a progress bar you can click."""
+    BG = (0.05, 0.05, 0.07)
+
+    def __init__(self, overlay):
+        self.ov = overlay
+        self.state = None
+        self.prompt = None
+        self.cover, self.cover_key = None, None
+        self.hover = None
+        self.shown = False
+        self.last_draw = 0.0
+        self.fonts, self.dc, self.bmp = [], None, None
+        hinst = kernel32.GetModuleHandleW(None)
+        self._wndproc = WNDPROC(self.wndproc)
+        self.class_name = f"KeyboardSoundPlayer{id(self)}"
+        wc = WNDCLASSW(0, self._wndproc, 0, 0, hinst, None, user32.LoadCursorW(None, ctypes.c_void_p(32649)),
+                       None, None, self.class_name)                      # hand cursor
+        user32.RegisterClassW(ctypes.byref(wc))
+        ex = 0x00080000 | 0x00000008 | 0x00000080 | 0x08000000           # LAYERED|TOPMOST|TOOLWINDOW|NOACTIVATE
+        self.hwnd = user32.CreateWindowExW(ex, self.class_name, "Keyboard Sound player", 0x80000000,
+                                           0, 0, 10, 10, None, None, hinst, None)
+        self.screen_dc = user32.GetDC(self.hwnd)
+        self.build()
+
+    # ---------- layout
+    def build(self):
+        u = self.ov.u
+        self.w, self.h = int(12 * u), int(2.5 * u)
+        pad = self.pad = int(0.25 * u)
+        self.art = self.h - 2 * pad
+        tx = pad + self.art + int(0.35 * u)
+        right = self.w - pad
+        b = int(1.0 * u)
+        cy = pad + int(0.55 * u)
+        self.buttons = {name: (right - b // 2 - k * (b + int(0.12 * u)), cy, b // 2)
+                        for k, name in enumerate(("next", "play", "prev"))}
+        left_of_buttons = right - 3 * b - int(0.5 * u)
+        self.title_rect = wintypes.RECT(tx, pad, left_of_buttons, pad + int(0.62 * u))
+        self.artist_rect = wintypes.RECT(tx, pad + int(0.62 * u), left_of_buttons, pad + int(1.12 * u))
+        self.time_rect = wintypes.RECT(left_of_buttons, pad + int(1.1 * u), right, pad + int(1.5 * u))
+        self.bar = (tx, self.h - pad - int(0.3 * u), right - tx, max(4, int(0.2 * u)))
+        self.prompt_rect = wintypes.RECT(tx, pad, right, self.h - pad)
+
+        for f in self.fonts:
+            gdi32.DeleteObject(f)
+        mk = lambda px, weight, face: gdi32.CreateFontW(-max(7, int(px)), 0, 0, 0, weight, 0, 0, 0, 1, 0, 0, 4, 0, face)
+        self.fonts = [mk(u * 0.42, 700, "Segoe UI"), mk(u * 0.34, 400, "Segoe UI"),
+                      mk(u * 0.3, 600, "Segoe UI"), mk(u * 0.42, 400, "Segoe MDL2 Assets"),
+                      mk(u * 0.8, 400, "Segoe UI Symbol")]
+        if self.dc:
+            gdi32.DeleteObject(self.bmp)
+            gdi32.DeleteDC(self.dc)
+        self.dc = gdi32.CreateCompatibleDC(self.screen_dc)
+        self.bmp = gdi32.CreateCompatibleBitmap(self.screen_dc, self.w, self.h)
+        gdi32.SelectObject(self.dc, self.bmp)
+        gdi32.SelectObject(self.dc, gdi32.GetStockObject(18))
+        gdi32.SelectObject(self.dc, gdi32.GetStockObject(19))
+        gdi32.SetBkMode(self.dc, 1)
+        self.plate = self.poly([(0, 0), (self.w - 1, 0), (self.w - 1, self.h - 1), (0, self.h - 1)], 0.35 * u)
+        user32.SetLayeredWindowAttributes(self.hwnd, TRANSPARENT_KEY, int(self.ov.cfg["opacity"] * 255), 3)
+        self.follow()
+        self.refresh()
+
+    def poly(self, pts, r):
+        flat = rounded_points(pts, [r] * len(pts), 4)
+        arr = (wintypes.POINT * (len(flat) // 2))(*[wintypes.POINT(int(flat[i]), int(flat[i + 1]))
+                                                    for i in range(0, len(flat), 2)])
+        return arr, len(arr)
+
+    def follow(self):
+        """Sit right above the keyboard (or below it when the keyboard is at the top of the screen)."""
+        r, area = wintypes.RECT(), wintypes.RECT()
+        user32.GetWindowRect(self.ov.hwnd, ctypes.byref(r))
+        user32.SystemParametersInfoW(0x30, 0, ctypes.byref(area), 0)
+        gap = int(0.25 * self.ov.u)
+        y = r.top - self.h - gap
+        if y < area.top:
+            y = r.bottom + gap
+        user32.SetWindowPos(self.hwnd, wintypes.HWND(-1), r.left, y, self.w, self.h, 0x10)
+
+    def keep_on_top(self):
+        if self.shown:
+            user32.SetWindowPos(self.hwnd, wintypes.HWND(-1), 0, 0, 0, 0, 0x1 | 0x2 | 0x10)
+
+    # ---------- state
+    def set_state(self, state):
+        if state and state.get("cover_key") != self.cover_key:
+            self.cover_key = state.get("cover_key")
+            if self.cover:
+                self.cover.close()
+                self.cover = None
+            if state.get("cover"):
+                try:
+                    self.cover = Cover(state["cover"])
+                except OSError:
+                    self.cover = None
+        if state and self.state and time.monotonic() < getattr(self, "hold_until", 0):
+            state = {**state, "pos": self.position(), "t": time.monotonic(), "playing": self.state["playing"]}
+        self.state = state
+        self.refresh()
+
+    def position(self):
+        st = self.state
+        if not st:
+            return 0.0
+        pos = st["pos"] + (time.monotonic() - st["t"] if st["playing"] else 0.0)
+        return min(pos, st["end"]) if st["end"] > 0 else pos
+
+    def nudge(self, delta):
+        """Move the bar right away; the player confirms a moment later."""
+        if self.state and self.state["can_seek"]:
+            self.state = {**self.state, "pos": max(0.0, self.position() + delta), "t": time.monotonic()}
+            self.hold_until = time.monotonic() + 0.8
+            self.refresh()
+
+    def toggle_playing(self):
+        if self.state:
+            self.state = {**self.state, "pos": self.position(), "t": time.monotonic(),
+                          "playing": not self.state["playing"]}
+            self.hold_until = time.monotonic() + 0.8
+            self.refresh()
+
+    def refresh(self):
+        cfg = self.ov.cfg
+        want = bool(MEDIA_OK and cfg["visible"] and cfg["media_widget"] and (self.state or self.prompt))
+        if self.prompt and not (cfg["visible"] and cfg["media_widget"]):
+            want = True                                    # always show the "press a shortcut" message
+        if want != self.shown:
+            self.shown = want
+            if want:
+                self.follow()
+            user32.ShowWindow(self.hwnd, 4 if want else 0)
+        if want:
+            self.draw()
+
+    def update(self):
+        if self.shown and self.state and self.state["playing"] and time.monotonic() - self.last_draw > 0.25:
+            self.draw()
+
+    # ---------- drawing
+    def draw(self):
+        self.last_draw = time.monotonic()
+        dc, u, ov = self.dc, self.ov.u, self.ov
+        now = time.monotonic()
+        accent = ov.glow_color(0.15, now)
+        gdi32.SetDCBrushColor(dc, TRANSPARENT_KEY)
+        gdi32.SetDCPenColor(dc, TRANSPARENT_KEY)
+        gdi32.Polygon(dc, (wintypes.POINT * 4)((0, 0), (self.w + 1, 0), (self.w + 1, self.h + 1), (0, self.h + 1)), 4)
+        gdi32.SetDCBrushColor(dc, cref(self.BG))
+        gdi32.SetDCPenColor(dc, cref(mix(self.BG, accent, 0.55)))
+        gdi32.Polygon(dc, *self.plate)
+
+        pad, art = self.pad, self.art
+        if self.cover:
+            self.cover.draw(dc, pad, pad, art)
+        else:
+            gdi32.SetDCBrushColor(dc, cref((0.12, 0.12, 0.16)))
+            gdi32.SetDCPenColor(dc, cref((0.12, 0.12, 0.16)))
+            gdi32.Polygon(dc, *self.poly([(pad, pad), (pad + art, pad), (pad + art, pad + art), (pad, pad + art)],
+                                         0.2 * u))
+            gdi32.SelectObject(dc, self.fonts[4])
+            gdi32.SetTextColor(dc, cref(accent))
+            user32.DrawTextW(dc, "♪", -1, ctypes.byref(wintypes.RECT(pad, pad, pad + art, pad + art)), 0x1 | 0x4 | 0x20)
+
+        if self.prompt:
+            gdi32.SelectObject(dc, self.fonts[0])
+            gdi32.SetTextColor(dc, 0xFFFFFF)
+            user32.DrawTextW(dc, self.prompt, -1, ctypes.byref(self.prompt_rect), 0x10 | 0x4 | 0x800 | 0x20 * 0)
+            self.present()
+            return
+        st = self.state
+        if not st:
+            self.present()
+            return
+        ellipsis = 0x20 | 0x4 | 0x800 | 0x8000                    # single line, vcenter, no prefix, "..."
+        gdi32.SelectObject(dc, self.fonts[0])
+        gdi32.SetTextColor(dc, 0xFFFFFF)
+        user32.DrawTextW(dc, st["title"] or T("nothing_playing"), -1, ctypes.byref(self.title_rect), ellipsis)
+        gdi32.SelectObject(dc, self.fonts[1])
+        gdi32.SetTextColor(dc, cref((0.66, 0.66, 0.74)))
+        user32.DrawTextW(dc, st["artist"], -1, ctypes.byref(self.artist_rect), ellipsis)
+
+        pos, end = self.position(), st["end"]
+        fmt = lambda v: f"{int(v) // 60}:{int(v) % 60:02d}"
+        gdi32.SelectObject(dc, self.fonts[2])
+        gdi32.SetTextColor(dc, cref((0.66, 0.66, 0.74)))
+        time_text = f"{fmt(pos)} / {fmt(end)}" if end > 0 else ""
+        user32.DrawTextW(dc, time_text, -1, ctypes.byref(self.time_rect), 0x2 | 0x20 | 0x4 | 0x800)
+
+        for name, (cx, cy, r) in self.buttons.items():          # ⏮ ⏯ ⏭
+            hot = self.hover == name
+            fill = mix(self.BG, accent, 0.85) if name == "play" else (mix(self.BG, WHITE, 0.14) if hot else self.BG)
+            if name == "play" and hot:
+                fill = mix(accent, WHITE, 0.25)
+            gdi32.SetDCBrushColor(dc, cref(fill))
+            gdi32.SetDCPenColor(dc, cref(fill))
+            gdi32.Ellipse(dc, cx - r, cy - r, cx + r, cy + r)
+            glyph = {"prev": "\ue892", "next": "\ue893", "play": "\ue769" if st["playing"] else "\ue768"}[name]
+            gdi32.SelectObject(dc, self.fonts[3])
+            gdi32.SetTextColor(dc, cref(INK if name == "play" else (0.92, 0.92, 0.96)))
+            user32.DrawTextW(dc, glyph, -1, ctypes.byref(wintypes.RECT(cx - r, cy - r, cx + r, cy + r)), 0x1 | 0x4 | 0x20)
+
+        x, y, w, h = self.bar                                    # progress bar
+        gdi32.SetDCBrushColor(dc, cref((0.17, 0.17, 0.22)))
+        gdi32.SetDCPenColor(dc, cref((0.17, 0.17, 0.22)))
+        gdi32.Polygon(dc, *self.poly([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], h / 2))
+        frac = min(1.0, pos / end) if end > 0 else 0.0
+        filled = int(w * frac)
+        if filled > 2:
+            dim = 1.0 if st["can_seek"] else 0.55
+            for i in range(0, filled, 3):                        # rainbow / effect colored fill
+                c = ov.glow_color(0.05 + 0.9 * i / max(1, w), now)
+                gdi32.SetDCBrushColor(dc, cref((c[0] * dim, c[1] * dim, c[2] * dim)))
+                gdi32.SetDCPenColor(dc, cref((c[0] * dim, c[1] * dim, c[2] * dim)))
+                gdi32.Rectangle(dc, x + i, y + 1, x + min(i + 3, filled), y + h - 1)
+            if self.hover == "bar" and st["can_seek"]:
+                gdi32.SetDCBrushColor(dc, 0xFFFFFF)
+                gdi32.SetDCPenColor(dc, 0xFFFFFF)
+                gdi32.Ellipse(dc, x + filled - h, y - h // 2, x + filled + h, y + h + h // 2)
+        self.present()
+
+    def present(self):
+        gdi32.BitBlt(self.screen_dc, 0, 0, self.w, self.h, self.dc, 0, 0, SRCCOPY)
+
+    # ---------- mouse
+    def hit(self, mx, my):
+        for name, (cx, cy, r) in self.buttons.items():
+            if (mx - cx) ** 2 + (my - cy) ** 2 <= r * r:
+                return name
+        x, y, w, h = self.bar
+        if x - h <= mx <= x + w + h and y - int(0.35 * self.ov.u) <= my <= y + h + int(0.35 * self.ov.u):
+            return "bar"
+        return None
+
+    def wndproc(self, hwnd, msg, wparam, lparam):
+        try:
+            mx, my = ctypes.c_short(lparam & 0xFFFF).value, ctypes.c_short((lparam >> 16) & 0xFFFF).value
+            if msg == 0x0201 and self.state and not self.prompt:           # left click
+                target = self.hit(mx, my)
+                if target in ("prev", "next", "play"):
+                    self.ov.media_action(target)
+                elif target == "bar" and self.state["can_seek"]:
+                    x, _, w, _ = self.bar
+                    seconds = max(0.0, min(1.0, (mx - x) / w)) * self.state["end"]
+                    media_commands.put(("seek_to", seconds))
+                    self.nudge(seconds - self.position())
+                return 0
+            if msg == 0x0200:                                              # mouse move
+                tme = TRACKMOUSEEVENT(ctypes.sizeof(TRACKMOUSEEVENT), 0x2, hwnd, 0)
+                ctypes.windll.user32.TrackMouseEvent(ctypes.byref(tme))
+                target = self.hit(mx, my)
+                if target != self.hover:
+                    self.hover = target
+                    self.draw()
+                return 0
+            if msg == 0x02A3:                                              # mouse left the player
+                self.hover = None
+                self.draw()
+                return 0
+            if msg == WM_PAINT:
+                ps = ctypes.create_string_buffer(72)
+                hdc = user32.BeginPaint(hwnd, ps)
+                gdi32.BitBlt(hdc, 0, 0, self.w, self.h, self.dc, 0, 0, SRCCOPY)
+                user32.EndPaint(hwnd, ps)
+                return 0
+        except Exception as e:
+            print("player error:", e)
+        return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
+    def close(self):
+        if self.cover:
+            self.cover.close()
         user32.ReleaseDC(self.hwnd, self.screen_dc)
         user32.DestroyWindow(self.hwnd)
         ctypes.windll.user32.UnregisterClassW(ctypes.c_wchar_p(self.class_name),
@@ -1679,6 +2326,7 @@ def main():
     except Exception:
         pass
     sys.setswitchinterval(0.001)                         # react to keys faster
+    ctypes.windll.ole32.CoInitializeEx(None, 2)          # single-threaded COM for the file dialog
 
     cfg = load_settings()
     sound_enabled = cfg["sound"]
@@ -1690,6 +2338,7 @@ def main():
     overlay = Overlay(cfg)
     overlay_hwnd = overlay.hwnd
     start(input_loop, True)
+    start(media_worker)
 
     signal.signal(signal.SIGINT, lambda *_: user32.PostQuitMessage(0))
     print("Keyboard sounds + RGB overlay ON.")
@@ -1700,6 +2349,7 @@ def main():
             user32.TranslateMessage(ctypes.byref(msg))
             user32.DispatchMessageW(ctypes.byref(msg))
     finally:
+        media_commands.put(None)
         overlay.close()
         if input_thread_id:
             user32.PostThreadMessageW(input_thread_id, WM_QUIT, 0, 0)

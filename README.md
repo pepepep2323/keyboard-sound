@@ -18,6 +18,8 @@ If Windows says *"Windows protected your PC"*, click **More info → Run anyway*
 - 🔊 **3 click sounds** (Creamy 1/2/3) or **your own** (wav, mp3, m4a, ogg, flac, wma), volume control
 - 🌈 **5 light effects**: rainbow wave, static light, breathing, ripple from key, only pressed keys
 - 🎨 **10 colors**: rainbow or a single color
+- 🎵 **Music control** (Spotify, YouTube, …): player panel with cover, title and a clickable progress bar,
+  shortcuts to play/pause, skip and seek — change them however you like
 - 🖱️ Mouse buttons, wheel and side buttons
 - ⌨️ Key labels follow your keyboard layout (e.g. Czech ě š č ř ž)
 - 🎮 Doesn't slow games down, clicks go through the overlay
@@ -33,6 +35,10 @@ Full help: **[NAVOD.txt](NAVOD.txt)** (also inside the ZIP and in the app: menu 
 | Move / resize | `Ctrl+Alt+F11`, drag it, scroll to resize, right-click for options, `Ctrl+Alt+F11` again to finish |
 | Change sound / effect / color | Menu → Sound / Effect / Color |
 | Your own sound | Menu → Sound → Load your own sound… |
+| Music: play / pause | `Ctrl+Alt+↓` |
+| Music: next / previous | `Ctrl+Alt+→` / `Ctrl+Alt+←` |
+| Music: seek ±10 s | `Ctrl+Alt+Shift+→` / `Ctrl+Alt+Shift+←` |
+| Change music shortcuts | Menu → Music → Change shortcuts |
 | Hide the keyboard | Menu → Show keyboard |
 | Quit | `Ctrl+Alt+F12` or menu → Quit |
 
@@ -50,9 +56,10 @@ Zvuk cvaknutí při každém stisku klávesy + RGB klávesnice a myš na obrazov
 
 ## Run from source
 
-Needs only Python 3 (no extra packages):
+Needs Python 3. The music control also needs the Windows media packages (everything else is the standard library):
 
 ```
+pip install winrt-runtime winrt-Windows.Media.Control winrt-Windows.Storage.Streams winrt-Windows.Foundation
 python keyboard_sound.py
 ```
 

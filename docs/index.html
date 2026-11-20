@@ -63,6 +63,15 @@
   .shot::before { content: ""; position: absolute; right: 3%; top: 5%; width: 14%; aspect-ratio: 1; border-radius: 10px; background: rgba(0, 0, 0, .28); border: 2px solid rgba(255, 255, 255, .35); }
   .shot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; border: 2px solid rgba(255, 255, 255, .8); border-radius: 50%; }
   .shot img { position: absolute; left: 2.5%; bottom: 4%; width: 58%; height: auto; opacity: .92; }
+  .shot img.shot-player { bottom: 31.5%; width: 25.4%; }
+  .music { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: center; }
+  @media (max-width: 760px) { .music { grid-template-columns: 1fr; } }
+  .player-demo { border-radius: 16px; padding: 22px; background: radial-gradient(80% 120% at 20% 0%, #2a2350 0%, #0f0f15 70%); border: 1px solid var(--line); }
+  .player-demo img { display: block; width: 100%; height: auto; }
+  .binds { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .binds li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+  .binds li > span:first-child { color: var(--muted); }
+  .binds .keys { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
   .caption { color: var(--muted); font-size: 15px; margin: 12px 0 0; text-align: center; }
 
   /* sounds */
@@ -127,6 +136,7 @@
     <nav>
       <a href="#zvuky"><span class="cs">Zvuky</span><span class="en">Sounds</span></a>
       <a href="#efekty"><span class="cs">Efekty</span><span class="en">Effects</span></a>
+      <a href="#hudba"><span class="cs">Hudba</span><span class="en">Music</span></a>
       <a href="#napoveda"><span class="cs">Nápověda</span><span class="en">Help</span></a>
       <div class="lang" role="group" aria-label="Language">
         <button type="button" data-set="cs" aria-pressed="true">CZ</button>
@@ -138,8 +148,8 @@
   <div class="hero">
     <h1><span class="cs">Každá klávesa cvakne a&nbsp;rozsvítí se</span><span class="en">Every key clicks and lights up</span></h1>
     <p>
-      <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. 3 zvuky nebo tvůj vlastní, 5 světelných efektů. Funguje i ve hrách. Zdarma pro Windows 10 a 11.</span>
-      <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. 3 sounds or your own, 5 light effects. Works in games too. Free for Windows 10 and 11.</span>
+      <span class="cs">Zvuk cvaknutí při každém stisku a RGB klávesnice s myší na obrazovce, které svítí podle toho, co mačkáš. 3 zvuky nebo tvůj vlastní, 5 světelných efektů a ovládání hudby (Spotify, YouTube…) zkratkami. Funguje i ve hrách. Zdarma pro Windows 10 a 11.</span>
+      <span class="en">A click sound on every key press, plus an RGB keyboard and mouse overlay that lights up what you press. 3 sounds or your own, 5 light effects and music control (Spotify, YouTube…) with shortcuts. Works in games too. Free for Windows 10 and 11.</span>
     </p>
     <div class="actions">
       <a class="download" href="https://github.com/pepepep2323/keyboard-sound/releases/latest/download/KeyboardSound.zip">
@@ -152,16 +162,19 @@
       </button>
     </div>
     <div class="meta">
-      <span class="cs">Verze 1.1 · KeyboardSound.zip · cca 9 MB · bez instalace</span>
-      <span class="en">Version 1.1 · KeyboardSound.zip · about 9 MB · no installation</span>
+      <span class="cs">Verze 1.2 · KeyboardSound.zip · cca 10 MB · bez instalace</span>
+      <span class="en">Version 1.2 · KeyboardSound.zip · about 10 MB · no installation</span>
     </div>
   </div>
 
   <section>
-    <div class="shot"><img src="preview.png" alt="RGB keyboard and mouse overlay in the corner of the screen" width="1096" height="278"></div>
+    <div class="shot">
+      <img class="shot-player" src="player.png" alt="Music player panel" width="480" height="100">
+      <img src="preview.png" alt="RGB keyboard and mouse overlay in the corner of the screen" width="1096" height="278">
+    </div>
     <p class="caption">
-      <span class="cs">Takhle to vypadá: klávesnice sedí v rohu obrazovky přes hru, zmáčknuté klávesy a tlačítka myši se rozsvítí a myš kliká skrz.</span>
-      <span class="en">This is how it looks: the keyboard sits in a corner of your screen on top of your game, pressed keys and mouse buttons glow, and clicks go straight through.</span>
+      <span class="cs">Takhle to vypadá: klávesnice s přehrávačem sedí v rohu obrazovky přes hru, zmáčknuté klávesy a tlačítka myši se rozsvítí a myš kliká skrz.</span>
+      <span class="en">This is how it looks: the keyboard and the music player sit in a corner of your screen on top of your game, pressed keys and mouse buttons glow, and clicks go straight through.</span>
     </p>
   </section>
 
@@ -215,6 +228,25 @@
     <p class="caption"><span class="cs">Skutečný snímek z aplikace pro vybraný efekt.</span><span class="en">A real screenshot of the app with the selected effect.</span></p>
   </section>
 
+  <section id="hudba">
+    <h2><span class="cs">Ovládání hudby</span><span class="en">Music control</span></h2>
+    <p class="lead"><span class="cs">Pouštěj, přeskakuj a posouvej písničky zkratkou, i uprostřed hry. Funguje se Spotify (aplikace i web), YouTube a dalšími přehrávači.</span><span class="en">Play, skip and seek songs with a shortcut, even in the middle of a game. Works with Spotify (app and web), YouTube and other players.</span></p>
+    <div class="music">
+      <div>
+        <div class="player-demo"><img src="player.png" alt="Music player: cover, title, artist, buttons and progress bar" width="480" height="100" loading="lazy"></div>
+        <p class="caption"><span class="cs">Přehrávač nad klávesnicí: klikni na tlačítka, nebo na lištu a skladba skočí na to místo.</span><span class="en">The player above the keyboard: click the buttons, or click the bar to jump to that point of the song.</span></p>
+      </div>
+      <ul class="binds">
+        <li><span><span class="cs">Přehrát / pauza</span><span class="en">Play / pause</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>↓</kbd></span></li>
+        <li><span><span class="cs">Další skladba</span><span class="en">Next track</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>→</kbd></span></li>
+        <li><span><span class="cs">Předchozí skladba</span><span class="en">Previous track</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd></span></li>
+        <li><span><span class="cs">Posunout o 10 s dopředu</span><span class="en">Seek 10 s forward</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>→</kbd></span></li>
+        <li><span><span class="cs">Posunout o 10 s dozadu</span><span class="en">Seek 10 s back</span></span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>←</kbd></span></li>
+        <li><span><span class="cs">Vlastní zkratky a krok posunu: menu → Hudba</span><span class="en">Your own shortcuts and seek step: menu → Music</span></span><span class="keys">⚙️</span></li>
+      </ul>
+    </div>
+  </section>
+
   <section>
     <h2><span class="cs">Jak to spustit</span><span class="en">How to start</span></h2>
     <p class="lead"></p>
@@ -239,12 +271,12 @@
         <ul class="cs">
           <li><b>Pravý klik</b> na ikonu klávesnice vpravo dole u hodin.</li>
           <li>Nevidíš ji? Klikni na šipku <b>^</b> vedle hodin.</li>
-          <li>V menu: zvuk, výběr zvuku, vlastní zvuk, hlasitost, efekt, barva, spouštění s Windows, nápověda, ukončení.</li>
+          <li>V menu: zvuk, výběr zvuku, vlastní zvuk, hlasitost, efekt, barva, hudba, spouštění s Windows, nápověda, ukončení.</li>
         </ul>
         <ul class="en">
           <li><b>Right-click</b> the keyboard icon near the clock (bottom right).</li>
           <li>Can't see it? Click the <b>^</b> arrow next to the clock.</li>
-          <li>The menu has: sound, sound choice, your own sound, volume, effect, color, start with Windows, help, quit.</li>
+          <li>The menu has: sound, sound choice, your own sound, volume, effect, color, music, start with Windows, help, quit.</li>
         </ul>
       </div>
       <div class="card">
@@ -271,6 +303,21 @@
         <ul class="en">
           <li>Menu → <b>Sound</b>: on/off, Creamy 1/2/3, volume.</li>
           <li><b>Your own sound</b>: menu → Sound → Load your own sound… (wav, mp3, m4a, ogg, flac, wma). The first 2 seconds are used and the volume is matched.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>🎵 <span class="cs">Hudba (Spotify, YouTube…)</span><span class="en">Music (Spotify, YouTube…)</span></h3>
+        <ul class="cs">
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↓</kbd> přehrát / pauza, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>→</kbd> / <kbd>←</kbd> další / předchozí.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>→</kbd> / <kbd>←</kbd> posune skladbu o 10 s (držením dál).</li>
+          <li><b>Přehrávač</b> nad klávesnicí: klikni na tlačítka nebo na lištu.</li>
+          <li><b>Změnit zkratky</b>: menu → Hudba → Změnit zkratky → vyber akci a stiskni novou zkratku.</li>
+        </ul>
+        <ul class="en">
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↓</kbd> play / pause, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>→</kbd> / <kbd>←</kbd> next / previous.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>→</kbd> / <kbd>←</kbd> seeks 10 s (hold to keep going).</li>
+          <li><b>The player</b> above the keyboard: click the buttons or the bar.</li>
+          <li><b>Change shortcuts</b>: menu → Music → Change shortcuts → pick an action and press the new shortcut.</li>
         </ul>
       </div>
       <div class="card">

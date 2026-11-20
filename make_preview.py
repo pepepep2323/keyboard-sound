@@ -21,10 +21,10 @@ def png_rgba(width, height, rows):
             + chunk(b"IEND", b""))
 
 
-def snapshot(ov, path):
+def snapshot(ov, path, bitmap=None):
     w, h = ov.w, ov.h
     buf = ctypes.create_string_buffer(w * h * 4)
-    ctypes.windll.gdi32.GetBitmapBits(ctypes.c_void_p(ov.bitmaps[1][1]), len(buf), buf)
+    ctypes.windll.gdi32.GetBitmapBits(ctypes.c_void_p(bitmap or ov.bitmaps[1][1]), len(buf), buf)
     raw = bytearray()
     data = buf.raw
     for y in range(h):
@@ -63,6 +63,21 @@ def render(name, effect="wave", color="rainbow", held=(), released=(), ripple_fr
     ov.close()
 
 
+def render_player(name):
+    """The music player panel with a made-up song (cover = the app icon)."""
+    cfg = dict(ks.DEFAULTS, key_size=int(40 / (ctypes.windll.user32.GetDpiForSystem() / 96)),
+               x=-4000, y=-4000, welcomed=True)
+    ov = ks.Overlay(cfg)
+    with open(os.path.join(HERE, "docs", "icon.png"), "rb") as f:
+        cover = f.read()
+    ov.widget.set_state({"app": "Spotify.exe", "title": "Your Favourite Song", "artist": "Some Artist",
+                         "playing": True, "pos": 83.0, "end": 215.0, "t": time.monotonic(), "cover": cover,
+                         "cover_key": "demo", "can_seek": True})
+    ov.widget.draw()
+    snapshot(ov.widget, os.path.join(HERE, "docs", name), ov.widget.bmp)
+    ov.close()
+
+
 if __name__ == "__main__":
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
     S, V, M = ks.S, ks.V, ks.M
@@ -73,3 +88,4 @@ if __name__ == "__main__":
     render("fx-breathe.png", effect="breathe", color="purple", breathe_phase=0.6, **gaming)
     render("fx-ripple.png", effect="ripple", ripple_from=S(0x22), ripple_age=0.35)
     render("fx-reactive.png", effect="reactive", color="red", **gaming)
+    render_player("player.png")
