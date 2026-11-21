@@ -161,6 +161,27 @@ def main():
         snapshot(sb, f"score-{mode}.png", int(sb.H + 0.3 * sb.u))
     sb.wcfg["mode"] = "enhanced"
 
+    bm = app.widgets["boost"]
+    bm.wcfg["size"] = size
+    bm.build()
+    me = {"Name": "Player", "Shortcut": 1, "TeamNum": 0, "Boost": 67}
+    bm.on_rl("UpdateState", {"Players": [me], "Game": {"Teams": [{"TeamNum": 0, "Score": 2, "ColorPrimary": "1873FF"},
+             {"TeamNum": 1, "Score": 1}], "bHasTarget": True, "Target": me}})
+    for mode in ks.SB_MODES:
+        bm.wcfg["mode"] = mode
+        bm.shown_boost, bm.last_draw = 67, 0.0
+        bm.redraw()
+        snapshot(bm, f"boost-{mode}.png")
+
+    chests = app.widgets["chests"]
+    st.data.update(fn_match=4, fn_today=11, fn_total=287, fn_best=9)
+    app.running = app.running | {ks.FORTNITE_EXE}
+    chests.redraw()
+    snapshot(chests, "chests.png")
+    chests.opened_at = time.monotonic() - 0.3
+    chests.redraw()
+    snapshot(chests, "chests-open.png")
+
     dash = app.widgets["dash"]
     app.gd_seconds = 754
     app.running = app.running | {"geometrydash.exe"}

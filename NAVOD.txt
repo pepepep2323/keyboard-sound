@@ -20,7 +20,7 @@ MENU
     - Přesunout / změnit velikost (úpravy widgetů)
     - Zobrazit widgety (vypnutím skryješ všechno, zvuk hraje dál)
     - Widgety: zapnout / vypnout každý zvlášť, přidat text nebo obrázek,
-      rozmístit do rohu
+      rozmístit do rohu, vrátit všechny na původní místo
     - Zvuk: zapnout/vypnout, Creamy 1 / 2 / 3, vlastní zvuk, hlasitost kliků,
       cvakání i při klikání myší (normálně vypnuté)
     - Efekt: duhová vlna, statické světlo, dýchání,
@@ -51,7 +51,8 @@ PŘESUNUTÍ A VELIKOST
         statistiky: vynulovat dnešek / rekord
         text: upravit text, barva, tučně, pozadí
         obrázek: změnit obrázek
-        u všech: větší, menší, průhlednost, skrýt, (odstranit)
+        u všech: větší, menší, průhlednost, vrátit na původní místo,
+                 skrýt, (odstranit)
     - znovu Ctrl+Alt+F11 = hotovo (všechno se uloží)
 
 TEXT A OBRÁZEK
@@ -91,6 +92,19 @@ SKÓRE ROCKET LEAGUE
   Černý RGB. Písmo si vybereš ze seznamu nebo jakékoliv nainstalované
   (Jiné písmo...). Ctrl+Alt+F11 a pravý klik na počítadlo.
 
+BOOST ROCKET LEAGUE
+  Kruh vpravo dole, který se plní tvým boostem (v barvě tvého týmu).
+  Při boostování létají jiskry, pod 20 zčervená, na 100 kolem běží světlo.
+  Vzhled, písmo a průhlednost má stejné jako skóre - změníš jedno,
+  změní se obojí.
+
+TRUHLY FORTNITE
+  Fortnite o truhlách žádná data neposílá, proto při otevření truhly
+  zmáčkneš svoje tlačítko (výchozí: boční tlačítko myši 5). Hře se nebere,
+  jen se počítá, a jen když máš Fortnite v popředí.
+  Na začátku zápasu se počítadlo samo vynuluje. Ukazuje zápas, dnes,
+  celkem a rekord. Pravý klik: +1 / -1, změnit klávesu, vynulovat.
+
 GEOMETRY DASH
   Kostička skáče s tebou a počítá skoky (klik, mezerník, šipka
   nahoru, W, jen když je hra v popředí), dnes i celkem.
@@ -100,7 +114,8 @@ VLASTNÍ ZVUK
   Podporované soubory: wav, mp3, m4a, ogg, flac, wma.
   Použijí se první 2 sekundy, ticho na začátku se uřízne
   a hlasitost se srovná s ostatními zvuky.
-  Hlasitost kliků: menu > Zvuk > Hlasitost kliků (10 - 100 %).
+  Hlasitost kliků: menu > Zvuk > Hlasitost kliků (10 - 200 %),
+  nebo Ctrl+Alt+PgUp / PgDn (o 10 % víc / míň).
 
 HUDBA (SPOTIFY, YOUTUBE, ...)
   Funguje se Spotify (aplikace i web), YouTube a dalšími přehrávači.
@@ -189,7 +204,8 @@ MOVE AND RESIZE
         stats: reset today / record
         text: edit text, color, bold, background
         image: change image
-        all: bigger, smaller, opacity, hide, (remove)
+        all: bigger, smaller, opacity, back to its original place,
+             hide, (remove)
     - Ctrl+Alt+F11 again = done (everything is saved)
 
 TEXT AND IMAGE
@@ -229,6 +245,19 @@ ROCKET LEAGUE SCORE
   Black RGB. Pick a font from the list or any installed font
   (Other font...). Ctrl+Alt+F11, then right-click the counter.
 
+ROCKET LEAGUE BOOST
+  A ring at the bottom right that fills with your boost (in your team color).
+  Sparks fly while boosting, under 20 it turns red, at 100 a light runs round.
+  It shares the look, font and opacity with the score - change one,
+  both change.
+
+FORTNITE CHESTS
+  Fortnite sends no data about chests, so press your chest button when you
+  open one (default: mouse side button 5). It isn't taken from the game, only
+  counted, and only while Fortnite is in front.
+  A new match resets it by itself. Shows this match, today, total and your
+  record. Right-click: +1 / -1, change the key, reset.
+
 GEOMETRY DASH
   A little cube jumps with you and counts your jumps (click, Space,
   Up arrow, W, only while the game is in front), today and in total.
@@ -238,7 +267,8 @@ YOUR OWN SOUND
   Supported files: wav, mp3, m4a, ogg, flac, wma.
   The first 2 seconds are used, silence at the start is cut off
   and the volume is matched to the other sounds.
-  Click volume: menu > Sound > Click volume (10 - 100 %).
+  Click volume: menu > Sound > Click volume (10 - 200 %),
+  or Ctrl+Alt+PgUp / PgDn (10 % louder / quieter).
 
 MUSIC (SPOTIFY, YOUTUBE, ...)
   Works with Spotify (app and web), YouTube and other players.

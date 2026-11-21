@@ -39,7 +39,10 @@ If Windows says *"Windows protected your PC"*, click **More info → Run anyway*
   shortcuts to play/pause, skip, seek and change the **music volume** (only the music app, not the game) —
   change them however you like
 - 🔇 **Spotify ads muted automatically** (they can't be skipped, so they're silenced)
-- 🔉 **Click volume** 10 – 100 %, click sound on mouse buttons too (off by default)
+- 🔉 **Click volume** 10 – 200 % (`Ctrl+Alt+PgUp / PgDn`), click sound on mouse buttons too (off by default)
+- 🔥 **Rocket League boost meter** in your team color, same look / font / opacity as the score counter
+- 🧰 **Fortnite chest counter**: this match, today, total, record (press your chest button; resets each match)
+- 📍 **Back to the original place** for one widget or all of them
 - 🖱️ Mouse buttons, wheel and side buttons
 - ⌨️ Key labels follow your keyboard layout (e.g. Czech ě š č ř ž)
 - 🎮 Doesn't slow games down, clicks go through the overlay

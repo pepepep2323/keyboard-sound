@@ -43,8 +43,10 @@ from ctypes import wintypes
 
 # ---------------------------------------------------------------- settings
 APP_NAME = "Keyboard Sound"
-WIDGET_TYPES = ["keyboard", "mouse", "player", "stats", "cat", "session", "rocket", "scoreboard", "dash", "text",
-                "image"]
+WIDGET_TYPES = ["keyboard", "mouse", "player", "stats", "cat", "session", "rocket", "scoreboard", "boost", "dash",
+                "chests", "text", "image"]
+RL_STYLE_KINDS = ("scoreboard", "boost")      # these share look, font and opacity
+RL_STYLE_KEYS = ("mode", "font", "bold", "opacity")
 FROZEN = getattr(sys, "frozen", False)               # True when running as KeyboardSound.exe
 HERE = os.path.dirname(os.path.abspath(__file__))
 RES_DIR = getattr(sys, "_MEIPASS", HERE)             # where bundled files are inside the .exe
@@ -65,7 +67,7 @@ DEFAULTS = {
     "sound_choice": "creamy-1",  # one of SOUNDS below, or "custom"
     "custom_sound": None,        # path of your own sound (copied into the settings folder)
     "custom_name": None,         # original file name of your own sound (shown in the menu)
-    "volume": 1.0,               # click volume 0.1 .. 1.0
+    "volume": 1.0,               # click volume 0.1 .. 2.0 (above 1.0 = louder than the sound file)
     "mouse_sound": False,        # also click on mouse buttons (tray icon -> Sound)
     "effect": "wave",            # wave, static, breathe, ripple, reactive
     "color": "rainbow",          # rainbow or one of COLORS below
@@ -83,7 +85,7 @@ DEFAULTS = {
     },
     "widgets": None,             # every widget's position / size / options (made on first start)
     "stats": {"date": "", "keys": 0, "clicks": 0, "best_cps": 0, "cat": 0, "rl_w": 0, "rl_l": 0, "gd_jumps": 0,
-              "gd_total": 0},
+              "gd_total": 0, "fn_match": 0, "fn_today": 0, "fn_total": 0, "fn_best": 0},
     "welcomed": False,           # first-start tip already shown
 }
 ISO_LAYOUT = True      # True = European keyboard (tall Enter), False = US
@@ -109,6 +111,7 @@ CUSTOM_MAX_SECONDS = 2.0
 MEDIA_ACTIONS = ["play", "next", "prev", "fwd", "back", "vol_up", "vol_down"]
 MEDIA_OK = importlib.util.find_spec("winrt.windows.media.control") is not None
 
+CLICK_VOLUMES = [2.0, 1.75, 1.5, 1.25, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
 HOTKEY_EDIT = 0x57     # F11 (with Ctrl+Alt)
 HOTKEY_QUIT = 0x58     # F12 (with Ctrl+Alt)
 
@@ -258,7 +261,7 @@ TEXTS = {
         "bind_busy": "Zkratku {} už používá jiný program.\nZkus jinou.", "bind_taken": "obsazeno",
         "media_missing": "Ovládání hudby není k dispozici", "space": "Mezerník",
         "nothing_playing": "Nic nehraje", "ad_muted": "Reklama - ztlumeno", "ad_playing": "Reklama",
-        "click_volume": "Hlasitost kliků",
+        "click_volume": "Hlasitost kliků\tCtrl+Alt+PgUp / PgDn",
         "widgets": "Widgety", "w_keyboard": "Klávesnice", "w_mouse": "Myš", "w_player": "Přehrávač",
         "w_stats": "Statistiky", "w_cat": "Kočka", "w_text": "Text", "w_image": "Obrázek", "w_hint": "",
         "add_text": "Přidat text...", "add_image": "Přidat obrázek...", "reset_layout": "Rozmístit",
@@ -294,7 +297,16 @@ TEXTS = {
         "rl_win": "VÝHRA!", "rl_loss": "PROHRA", "rl_enable_hint": "Zapni živá data: menu > Hry",
         "w_scoreboard": "Skóre Rocket League", "sb_mode": "Vzhled", "sb_enhanced": "Vylepšený",
         "sb_pastel": "Pastelový RGB", "sb_black": "Černý RGB", "sb_font": "Písmo", "sb_font_other": "Jiné písmo...",
-        "sb_bold": "Tučné písmo", "sb_top": "Zpět nahoru doprostřed",
+        "sb_bold": "Tučné písmo", "sb_top": "Zpět nahoru doprostřed", "sb_handwriting": "rukopis",
+        "w_boost": "Boost Rocket League",
+        "home_widget": "Vrátit na původní místo", "home_all": "Vrátit všechny na původní místo",
+        "w_chests": "Truhly Fortnite", "fn_match": "truhel v zápase", "fn_line": "dnes {}  ·  celkem {}  ·  rekord {}",
+        "fn_closed": "Spusť Fortnite", "fn_key": "Klávesa pro truhlu: {}", "fn_change": "Změnit klávesu pro truhlu...",
+        "fn_plus": "+1 truhla", "fn_minus": "-1 truhla (oprava)", "fn_reset_match": "Vynulovat tenhle zápas",
+        "fn_reset_all": "Vynulovat všechno", "fn_prompt": "Zmáčkni klávesu nebo tlačítko myši (Esc = zrušit)",
+        "fn_hint": "{} = +1 truhla", "mouse_m": "kolečko myši (klik)", "mouse_x1": "myš - boční tlačítko 4",
+        "mouse_x2": "myš - boční tlačítko 5", "bm_home": "Zpět na místo boostu (vpravo dole)",
+        "sb_same": "Vzhled, písmo a průhlednost má skóre i boost stejné",
         "gd_time": "Hraješ {}", "gd_reset": "Vynulovat dnešní skoky",
         "fs_title": "Widgety nebyly ve hře vidět",
         "fs_text": "{} běží v exkluzivní celé obrazovce, přes ni Windows nic nezobrazí.\n"
@@ -334,7 +346,7 @@ TEXTS = {
         "bind_busy": "The shortcut {} is already used by another program.\nTry a different one.",
         "bind_taken": "taken", "media_missing": "Music control is not available", "space": "Space",
         "nothing_playing": "Nothing is playing", "ad_muted": "Ad - muted", "ad_playing": "Ad",
-        "click_volume": "Click volume",
+        "click_volume": "Click volume\tCtrl+Alt+PgUp / PgDn",
         "widgets": "Widgets", "w_keyboard": "Keyboard", "w_mouse": "Mouse", "w_player": "Player",
         "w_stats": "Stats", "w_cat": "Cat", "w_text": "Text", "w_image": "Image", "w_hint": "",
         "add_text": "Add text...", "add_image": "Add image...", "reset_layout": "Arrange",
@@ -370,7 +382,16 @@ TEXTS = {
         "rl_win": "WIN!", "rl_loss": "LOSS", "rl_enable_hint": "Turn on live data: menu > Games",
         "w_scoreboard": "Rocket League score", "sb_mode": "Look", "sb_enhanced": "Enhanced",
         "sb_pastel": "Pastel RGB", "sb_black": "Black RGB", "sb_font": "Font", "sb_font_other": "Other font...",
-        "sb_bold": "Bold font", "sb_top": "Back to top center",
+        "sb_bold": "Bold font", "sb_top": "Back to top center", "sb_handwriting": "handwriting",
+        "w_boost": "Rocket League boost",
+        "home_widget": "Back to its original place", "home_all": "Put all back in their original places",
+        "w_chests": "Fortnite chests", "fn_match": "chests this match", "fn_line": "today {}  ·  total {}  ·  record {}",
+        "fn_closed": "Start Fortnite", "fn_key": "Chest key: {}", "fn_change": "Change the chest key...",
+        "fn_plus": "+1 chest", "fn_minus": "-1 chest (undo)", "fn_reset_match": "Reset this match",
+        "fn_reset_all": "Reset everything", "fn_prompt": "Press a key or mouse button (Esc = cancel)",
+        "fn_hint": "{} = +1 chest", "mouse_m": "mouse wheel (click)", "mouse_x1": "mouse side button 4",
+        "mouse_x2": "mouse side button 5", "bm_home": "Back to the boost meter's place (bottom right)",
+        "sb_same": "Score and boost share the look, font and opacity",
         "gd_time": "Playing {}", "gd_reset": "Reset today's jumps",
         "fs_title": "Widgets weren't visible in the game",
         "fs_text": "{} runs in exclusive fullscreen, Windows can't show anything over it.\n"
@@ -644,8 +665,11 @@ def make_variants(ch, samples, gain):
             f = pos - j
             j2 = min(j + 1, frames - 1)
             for c in range(ch):
-                v = samples[j * ch + c] * (1 - f) + samples[j2 * ch + c] * f
-                out[i * ch + c] = max(-32768, min(32767, int(v * g)))
+                v = (samples[j * ch + c] * (1 - f) + samples[j2 * ch + c] * f) * g
+                if v > 24000 or v < -24000:            # louder than 100 %: round off the peaks instead of crackling
+                    a = abs(v)
+                    v = math.copysign(24000 + 8700 * math.tanh((a - 24000) / 8700), v)
+                out[i * ch + c] = max(-32768, min(32767, int(v)))
         variants.append(out.tobytes())
     return variants
 
@@ -1057,6 +1081,8 @@ NEW_WIDGETS = {          # built-in widgets added in later versions (added to ol
     "session": {"type": "session", "visible": True},
     "rocket": {"type": "rocket", "visible": True},
     "scoreboard": {"type": "scoreboard", "visible": True, "mode": "enhanced", "font": "Bahnschrift", "bold": True},
+    "boost": {"type": "boost", "visible": True},
+    "chests": {"type": "chests", "visible": True, "key": ["m", "X2"]},
     "dash": {"type": "dash", "visible": True},
 }
 
@@ -1091,14 +1117,13 @@ def load_settings():
     for wid, w in NEW_WIDGETS.items():
         if not any(x["type"] == w["type"] for x in widgets.values()):
             size = (widgets.get("keyboard") or {}).get("size", 26)
-            if w["type"] == "scoreboard":                 # about as big as the game's own scoreboard
+            if w["type"] in ("scoreboard", "boost"):      # about as big as the game's own scoreboard / boost
                 size = scoreboard_default_size()
             widgets[wid] = {**w, "x": None, "y": None, "size": size}
     cfg["widgets"] = widgets
     cfg["stats"] = {**DEFAULTS["stats"], **(cfg.get("stats") or {})}
     cfg["binds"] = {**DEFAULTS["binds"], **(cfg.get("binds") or {})}
-    if cfg.get("volume", 1.0) < 0.1:
-        cfg["volume"] = 0.1
+    cfg["volume"] = max(0.1, min(2.0, float(cfg.get("volume") or 1.0)))
     return cfg
 
 
@@ -1554,6 +1579,51 @@ def rl_worker(ready):
         ui_events.put(("rl", ("Disconnected", None)))
         wake_overlay()
         time.sleep(2)
+
+
+FORTNITE_EXE = "fortniteclient-win64-shipping.exe"
+fn_wanted = threading.Event()      # set while the chest widget wants to know when a Fortnite match starts
+
+
+def fortnite_worker(ready):
+    """Follows Fortnite's own log file: a new match (warm-up island) resets the chest counter."""
+    ready.append(None)
+    path = os.path.join(os.environ.get("LOCALAPPDATA", ""), "FortniteGame", "Saved", "Logs", "FortniteGame.log")
+    f, ident, rest = None, None, b""
+    while True:
+        fn_wanted.wait()
+        try:
+            st = os.stat(path)
+            if f is None or (st.st_ino, st.st_ctime) != ident or st.st_size < f.tell():
+                if f:
+                    f.close()
+                fresh = f is not None              # the game restarted: read the new log from the start
+                f = open(path, "rb")
+                ident = (st.st_ino, st.st_ctime)
+                if not fresh:
+                    f.seek(0, 2)                   # first look: only what happens from now on
+                rest = b""
+            data = f.read(1 << 20)
+            if data:
+                lines = (rest + data).split(b"\n")
+                rest = lines.pop()
+                for line in lines:
+                    if b"HandleGamePhaseChanged" in line and b"NewPhase = EAthenaGamePhase::Warmup" in line:
+                        ui_events.put(("fn", "match_start"))
+                        wake_overlay()
+                continue
+        except OSError:
+            f = None
+        time.sleep(1.0)
+
+
+def key_label(kid):
+    if not kid:
+        return "-"
+    kid = tuple(kid)
+    if kid[0] == "m":
+        return T({"M": "mouse_m", "X1": "mouse_x1", "X2": "mouse_x2"}.get(kid[1], "mouse_m"))
+    return bind_text(0, vk_from_key_id(kid))
 
 
 # ---------------------------------------------------------------- shortcuts
@@ -2034,6 +2104,17 @@ class Canvas:
         gdiplus.GdipDeletePen(pen)
 
     def arc(self, x, y, w, h, start, sweep, color, width):
+        """color = one ARGB color or a gradient list (left -> right across the circle)."""
+        if isinstance(color, list):
+            brush = self.line_brush(x, y, x + w, y + h, color)
+            pen = ctypes.c_void_p()
+            gdiplus.GdipCreatePen2(brush, width, 0, ctypes.byref(pen))
+            gdiplus.GdipSetPenStartCap(pen, 2)
+            gdiplus.GdipSetPenEndCap(pen, 2)
+            gdiplus.GdipDrawArc(self.g, pen, x, y, w, h, start, sweep)
+            gdiplus.GdipDeletePen(pen)
+            gdiplus.GdipDeleteBrush(brush)
+            return
         pen = self._pen(color, width)
         gdiplus.GdipDrawArc(self.g, pen, x, y, w, h, start, sweep)
         gdiplus.GdipDeletePen(pen)
@@ -3049,7 +3130,7 @@ class Stats:
     def check_day(self):
         today = datetime.now().strftime("%Y-%m-%d")
         if self.data.get("date") != today:
-            self.data.update(date=today, keys=0, clicks=0, rl_w=0, rl_l=0, gd_jumps=0)
+            self.data.update(date=today, keys=0, clicks=0, rl_w=0, rl_l=0, gd_jumps=0, fn_today=0)
 
     def add(self, kid):
         now = time.monotonic()
@@ -3086,7 +3167,13 @@ class StatsWidget(ArgbWidget):
         super().__init__(app, wid)
         self.last = None
         self.last_draw = 0.0
+        self.volume_until, self.volume_shown = 0.0, 1.0
         self.build()
+
+    def flash_volume(self, volume):
+        self.volume_until, self.volume_shown = time.monotonic() + 1.5, volume
+        if self.shown:
+            self.redraw()
 
     def build(self):
         u = self.u
@@ -3111,12 +3198,20 @@ class StatsWidget(ArgbWidget):
                    outline_w=u / 10)
             c.text(sub, x, 1.85 * u, half, 0.45 * u, 0.3 * u, muted, bold=False)
         c.line(0.5 * u, 2.45 * u, self.w - 0.5 * u, 2.45 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+        if now < self.volume_until:               # just changed the click volume with Ctrl+Alt+PgUp / PgDn
+            c.text(f"{T('click_volume').split(chr(9))[0]}: {int(round(self.volume_shown * 100))} %", 0, 2.5 * u,
+                   self.w, 0.65 * u, 0.33 * u, argb(app.glow_color(0.3, now)), bold=True)
+            return
         c.text(T("stats_today").format(f"{st.data['keys']:,}".replace(",", " "),
                                        f"{st.data['clicks']:,}".replace(",", " ")),
                0, 2.5 * u, self.w, 0.65 * u, 0.33 * u, argb((0.85, 0.85, 0.9)), bold=False)
 
     def tick(self, now):
         if self.shown and now - self.last_draw > 0.25:
+            if now < self.volume_until + 0.3:
+                self.last_draw = now
+                self.redraw()
+                return
             st = self.app.stats
             key = (st.cps(now), st.apm(now), st.data["keys"], st.data["clicks"], st.data.get("best_cps", 0))
             if key != self.last or self.app.animated():
@@ -3568,7 +3663,9 @@ class RocketWidget(ArgbWidget):
 
 SB_MODES = ["enhanced", "pastel", "black"]
 SB_FONTS = ["Bahnschrift", "Segoe UI", "Arial Black", "Impact", "Verdana", "Trebuchet MS", "Consolas",
-            "Comic Sans MS", "Georgia", "Courier New"]
+            "Georgia", "Courier New",
+            "Ink Free", "Segoe Script", "Segoe Print", "Comic Sans MS", "Gabriola"]     # the last ones: handwriting
+SB_HANDWRITING = {"Ink Free", "Segoe Script", "Segoe Print", "Comic Sans MS", "Gabriola"}
 
 
 def font_installed(name, cache={}):
@@ -3599,6 +3696,7 @@ class ScoreboardWidget(ArgbWidget):
     """Rocket League score counter: your team's score, match time, the other team's score.
     Covers the game's own scoreboard: one solid board, real team colors, animated."""
     kind = "scoreboard"
+    HOME_TEXT = "sb_top"
     PULSE = 3.0
     LAYOUT = 2              # bump when the default size / place changes (old settings get the new default)
     CONFETTI = 2.6          # seconds confetti falls after a goal
@@ -3614,12 +3712,25 @@ class ScoreboardWidget(ArgbWidget):
         self.waves = []                           # (team, time): shock rings after a goal
         self.bits = []                            # confetti: [x, y, vx, vy, angle, spin, size, rgb, born]
         self.last_draw = 0.0
-        if self.wcfg.get("layout") != self.LAYOUT:      # older, smaller scoreboard -> new size, back to the top
+        if self.wcfg.get("layout") != self.LAYOUT:      # older, smaller scoreboard -> new size, back to its place
             self.wcfg.update(layout=self.LAYOUT, size=scoreboard_default_size(), x=None, y=None)
+        mate = next((v for k, v in app.cfg["widgets"].items()       # a new one takes the look of its partner
+                     if v.get("type") in RL_STYLE_KINDS and k != wid and "mode" in v), None)
+        if mate and "mode" not in self.wcfg:
+            self.wcfg.update({k: mate[k] for k in RL_STYLE_KEYS if k in mate})
         self.build()
 
+    own_opacity = True                            # its own opacity (100 % = the game's scoreboard never shows)
+
     def opacity(self):
-        return 1.0                                # never see-through: the game's scoreboard must not show
+        return max(0.2, min(1.0, float(self.wcfg.get("opacity", 1.0))))
+
+    def sync_style(self):
+        """Score and boost always look the same: copy look / font / opacity to the partner and redraw both."""
+        for w in self.app.widgets.values():
+            if w.kind in RL_STYLE_KINDS and w is not self:
+                w.wcfg.update({k: self.wcfg[k] for k in RL_STYLE_KEYS if k in self.wcfg})
+                w.redraw()
 
     def build(self):
         u = self.u
@@ -3731,6 +3842,26 @@ class ScoreboardWidget(ArgbWidget):
     def font(self):
         name = self.wcfg.get("font") or "Bahnschrift"
         return name if font_installed(name) else "Segoe UI"
+
+    def metrics(self, c, font, bold, cache={}):
+        """(size factor, digit top, digit height) so every font's numbers are equally tall and truly centered
+        (script fonts like Gabriola draw small digits in a tall line)."""
+        key = (font, bold)
+        if key not in cache:                      # "8" is full height in every font (also old-style digits)
+            _, _, _, ref_h = c.measure("8", 100, bold, "Segoe UI")
+            _, top, _, h = c.measure("8", 100, bold, font)
+            factor = max(0.6, min(2.5, ref_h / h)) if h > 1 else 1.0
+            cache[key] = (factor, top, h)         # top / height of the "8" at size 100
+        return cache[key]
+
+    def number(self, c, label, x, y, w, h, size, fill, bold, font, outline, outline_w):
+        """Draws the score / time centered on the digits themselves, the same height in every font."""
+        factor, top, height = self.metrics(c, font, bold)
+        size *= factor
+        cy = y + h * 0.45
+        y0 = cy - (top + height / 2) * size / 100
+        c.text(label, x - w, y0, 3 * w, h * 2.5, size, fill, bold=bold, valign=0, outline=outline,
+               outline_w=outline_w, font=font)
 
     @staticmethod
     def rainbow(now, n=7, s=1.0, v=1.0, offset=0.0, speed=0.15, span=1.0, a=1.0):
@@ -3859,30 +3990,37 @@ class ScoreboardWidget(ArgbWidget):
                             stroke_vertical=True)
                     self.sheen(c, flat, box, now, i * 0.25)
                     fill = argb(WHITE)
-                c.text(label, x - bw, y - 0.05 * u, 3 * bw, bh, size, fill, bold=bold, outline=argb((0, 0, 0), 0.6),
-                       outline_w=max(2.0, u / 8), font=font)
+                self.number(c, label, x, y, bw, bh, size, fill, bold, font, argb((0, 0, 0), 0.6), max(2.0, u / 8))
 
             elif mode == "pastel":
                 if glowing:
                     for k in range(4):
                         c.shape(flat, stroke=self.rainbow(now, s=0.45, offset=i * 0.2, a=0.5 / (k + 1)),
                                 width=(k + 1) * 0.15 * u * pulse)
-                base = now * 0.05 + i * 0.18
-                cols = [argb(mix(colorsys.hsv_to_rgb((base + j * 0.09) % 1.0, 0.26, 1.0), WHITE, 0.5 * flash))
-                        for j in range(4)]
+                if team is None:                      # the time: pastel rainbow
+                    base = now * 0.05 + i * 0.18
+                    cols = [argb(colorsys.hsv_to_rgb((base + j * 0.09) % 1.0, 0.26, 1.0)) for j in range(4)]
+                else:                                 # a score: the team's own color, pastel, gently shimmering
+                    h0, s0, _ = colorsys.rgb_to_hsv(*team_col)
+                    sat = max(0.38, s0 * 0.55) if s0 > 0.15 else 0.0        # white / gray team stays gray
+                    cols = [argb(mix(colorsys.hsv_to_rgb((h0 + 0.035 * math.sin(now * 1.4 + j)) % 1.0, sat,
+                                                         1.0 - (0.1 if not sat else 0) + 0.03 * math.sin(now * 1.4 + j)),
+                                     WHITE, 0.5 * flash)) for j in range(4)]
                 c.shape(flat, fill=cols, vertical=False)
                 c.shape(flat, fill=[argb(WHITE, 0.45), argb(WHITE, 0.0)])           # soft top light
                 edge = self.rainbow(now, s=0.4, offset=i * 0.2, speed=0.08)
                 if late:
                     edge = argb((1.0, 0.55, 0.6), 0.5 + 0.5 * (0.5 + 0.5 * math.cos(now * 2 * math.pi)))
                 c.shape(flat, stroke=edge, width=max(2.0, u / 10))
-                if team is not None:                  # pastel version of the team's color = which team
-                    strip = mix(team_col, WHITE, 0.35)
-                    c.round_rect(x + 0.45 * u, bh - 0.32 * u, bw - 0.9 * u, 0.12 * u, 0.06 * u, fill=argb(strip))
+                if team is not None:                  # a strong bar in the team's color = which team
+                    c.round_rect(x + 0.4 * u, bh - 0.36 * u, bw - 0.8 * u, 0.17 * u, 0.085 * u, fill=argb(team_col))
                     self.sheen(c, flat, box, now, i * 0.25)
-                ink = (0.62, 0.42, 0.02) if (team is None and self.ot) else mix((0.2, 0.17, 0.33), (0.85, 0.1, 0.2), blink if team is None else 0)
-                c.text(label, x - bw, y - 0.05 * u, 3 * bw, bh, size, argb(ink), bold=bold,
-                       outline=argb(WHITE, 0.85), outline_w=max(2.0, u / 9), font=font)
+                if team is not None:                  # the number in a deep shade of the team's color
+                    hh, ss, _ = colorsys.rgb_to_hsv(*team_col)
+                    ink = colorsys.hsv_to_rgb(hh, min(1.0, ss * 0.9 + 0.1), 0.42)
+                else:
+                    ink = (0.62, 0.42, 0.02) if self.ot else mix((0.2, 0.17, 0.33), (0.85, 0.1, 0.2), blink)
+                self.number(c, label, x, y, bw, bh, size, argb(ink), bold, font, argb(WHITE, 0.85), max(2.0, u / 9))
 
             else:                                            # black RGB
                 ring = self.rainbow(now, offset=i * 0.22)
@@ -3890,20 +4028,29 @@ class ScoreboardWidget(ArgbWidget):
                 for k in range(4):                           # soft neon glow around the tab
                     c.shape(flat, stroke=self.rainbow(now, offset=i * 0.22, a=min(1.0, 0.16 + 0.4 * pulse * glowing) / (k + 1)),
                             width=(k + 1) * 0.12 * u * boost)
-                c.shape(flat, fill=[argb(mix((0.06, 0.06, 0.08), WHITE, 0.35 * flash)), argb((0.01, 0.01, 0.015))])
+                if team is None:
+                    c.shape(flat, fill=[argb((0.06, 0.06, 0.08)), argb((0.01, 0.01, 0.015))])
+                else:                                 # a dark tint of the team's color from below
+                    c.shape(flat, fill=[argb(mix((0.03, 0.03, 0.04), WHITE, 0.35 * flash)),
+                                        argb(mix((0.02, 0.02, 0.03), team_col, 0.32 + 0.3 * flash))])
                 c.shape(flat, stroke=argb((1.0, 0.3, 0.3)) if (late and team is None and int(now * 2) % 2) else ring,
                         width=max(2.0, u / 9))
-                if team is not None:
-                    c.round_rect(x + 0.5 * u, bh - 0.3 * u, bw - 1.0 * u, 0.09 * u, 0.045 * u, fill=argb(team_col))
+                if team is not None:                  # a glowing bar in the team's color
+                    bar = (x + 0.4 * u, bh - 0.38 * u, bw - 0.8 * u, 0.16 * u)
+                    c.round_rect(bar[0] - 0.08 * u, bar[1] - 0.08 * u, bar[2] + 0.16 * u, bar[3] + 0.16 * u,
+                                 0.16 * u, fill=argb(team_col, 0.35))
+                    c.round_rect(*bar, 0.08 * u, fill=argb(mix(team_col, WHITE, 0.15)))
                 self.sheen(c, flat, box, now, i * 0.25)
                 if team is None and self.ot:
                     fill = argb(gold)
                 elif hurry and team is None:
                     fill = argb(mix((1.0, 0.2, 0.25), WHITE, blink))
-                else:
+                elif team is None:
                     fill = self.rainbow(now, n=5, offset=i * 0.22 + 0.1, span=0.5)
-                c.text(label, x - bw, y - 0.05 * u, 3 * bw, bh, size, fill, bold=bold, outline=argb((0, 0, 0), 0.9),
-                       outline_w=max(2.0, u / 8), font=font)
+                else:                                 # the number in the team's color (light to full)
+                    fill = [argb(mix(team_col, WHITE, 0.55)), argb(mix(team_col, WHITE, 0.15)),
+                            argb(mix(team_col, WHITE, 0.55))]
+                self.number(c, label, x, y, bw, bh, size, fill, bold, font, argb((0, 0, 0), 0.9), max(2.0, u / 8))
 
             if team is None and self.ot:
                 c.text(T("rl_ot"), x, y + 0.08 * u, bw, 0.38 * u, 0.26 * u,
@@ -3946,12 +4093,13 @@ class ScoreboardWidget(ArgbWidget):
         current = self.wcfg.get("font") or "Bahnschrift"
         fonts = [f for f in SB_FONTS if font_installed(f)]
         for i, f in enumerate(fonts):
-            add(checked(current == f), 800 + i, f"{T('sb_font')}: {f}")
+            hand = f" ({T('sb_handwriting')})" if f in SB_HANDWRITING else ""
+            add(checked(current == f), 800 + i, f"{T('sb_font')}: {f}{hand}")
         if current not in fonts:
-            add(0x8, 811, f"{T('sb_font')}: {current}")
-        add(0, 810, T("sb_font_other"))
+            add(0x8, 831, f"{T('sb_font')}: {current}")
+        add(0, 830, T("sb_font_other"))
         add(checked(self.wcfg.get("bold", True)), 793, T("sb_bold"))
-        add(0, 794, T("sb_top"))
+        add(0x1, 0, T("sb_same"))
 
     def menu_command(self, cmd):
         fonts = [f for f in SB_FONTS if font_installed(f)]
@@ -3959,7 +4107,7 @@ class ScoreboardWidget(ArgbWidget):
             self.wcfg["mode"] = SB_MODES[cmd - 790]
         elif 800 <= cmd < 800 + len(fonts):
             self.wcfg["font"] = fonts[cmd - 800]
-        elif cmd == 810:
+        elif cmd == 830:
             picked = pick_font(self.wcfg.get("font"), self.wcfg.get("bold", True))
             if not picked:
                 return True
@@ -3969,12 +4117,359 @@ class ScoreboardWidget(ArgbWidget):
         elif cmd == 794:
             self.wcfg["x"] = self.wcfg["y"] = None
             self.place()
-        elif cmd == 811:
+        elif cmd == 831:
             return True
         else:
             return False
         self.redraw()
+        self.sync_style()
         return True
+
+
+class BoostWidget(ScoreboardWidget):
+    """Rocket League boost meter: a ring that fills up with your boost, the number in the middle.
+    Same looks, team color, font and opacity as the score counter."""
+    kind = "boost"
+    HOME_TEXT = "bm_home"
+    LAYOUT = 1
+
+    def __init__(self, app, wid):
+        self.boost, self.shown_boost, self.boosting = None, 0.0, False
+        self.jump_at, self.sparks, self.prev_boost = None, [], None
+        super().__init__(app, wid)
+
+    def build(self):
+        u = self.u
+        self.D = 6.0 * u                          # ring diameter (~240 px at 1080p like the game's)
+        self.margin = 0.9 * u
+        size = self.D + 2 * self.margin
+        self.make_canvas(size, size)
+        self.shapes, self.backing = [], []
+        self.place()
+        self.refresh()
+
+    def has_content(self):
+        return self.in_match and self.boost is not None
+
+    def on_rl(self, event, data):
+        super().on_rl(event, data)
+        data = data if isinstance(data, dict) else {}
+        if event in ("Connected", "Disconnected", "MatchDestroyed"):
+            self.boost, self.boosting, self.prev_boost = None, False, None
+        elif event == "UpdateState":
+            game = data.get("Game") or {}
+            target = game.get("Target") if game.get("bHasTarget") and isinstance(game.get("Target"), dict) else None
+            car = None
+            if target:
+                car = next((pl for pl in data.get("Players") or [] if isinstance(pl, dict)
+                            and pl.get("Name") == target.get("Name") and pl.get("Shortcut") == target.get("Shortcut")), None)
+            was_known = self.boost is not None
+            if car is not None and isinstance(car.get("Boost"), (int, float)):
+                self.boost = max(0, min(100, car["Boost"]))
+                self.boosting = bool(car.get("bBoosting"))
+                if self.prev_boost is not None and self.boost - self.prev_boost >= 10:
+                    self.jump_at = time.monotonic()            # picked up a boost pad
+                self.prev_boost = self.boost
+            else:
+                self.boost = None
+            if (self.boost is not None) != was_known:
+                self.refresh()
+
+    def burst(self, team, now):
+        pass                                      # no confetti on the boost meter
+
+    def draw(self, c, now):
+        dt = min(0.1, now - self.last_draw) if self.last_draw else 0.0
+        self.last_draw = now
+        u, mode, font = self.u, self.mode, self.font()
+        bold = self.wcfg.get("bold", True)
+        target = self.boost if self.boost is not None else 67          # sample value while moving widgets
+        self.shown_boost += (target - self.shown_boost) * min(1.0, dt * 12) if dt else (target - self.shown_boost)
+        val = self.shown_boost
+        frac = max(0.0, min(1.0, val / 100))
+        mine = self.colors[self.order()[0]]
+        cx = cy = self.w / 2
+        R = self.D / 2
+        ring_w = 0.62 * u
+        rr = R - ring_w / 2 - 0.25 * u                    # radius of the ring's middle line
+        start, sweep = 135.0, 270.0
+        low = val < 20.5
+        lowp = 0.5 + 0.5 * math.cos(now * 2 * math.pi * 1.5) if low else 0.0
+        jump = 0.0
+        if self.jump_at and now - self.jump_at < 0.6:
+            jump = 1.0 - (now - self.jump_at) / 0.6
+        boostp = (0.5 + 0.5 * math.sin(now * 2 * math.pi * 4)) if self.boosting else 0.0
+        gold = (1.0, 0.84, 0.3)
+
+        # shadow + disc
+        for k in range(3):
+            c.ellipse(cx - R + 0.04 * u, cy - R + (k + 1) * 0.08 * u, 2 * R, 2 * R, fill=argb((0, 0, 0), 0.2 - k * 0.05))
+        if mode == "enhanced":
+            c.ellipse(cx - R, cy - R, 2 * R, 2 * R, fill=argb((0.06, 0.06, 0.1)))
+            c.gradient_rect(cx - R * 0.92, cy - R * 0.92, 1.84 * R, 1.84 * R, R * 0.92,
+                            fill=[argb((0.2, 0.21, 0.29)), argb((0.07, 0.07, 0.11)), argb((0.02, 0.02, 0.04))])
+            c.ellipse(cx - R, cy - R, 2 * R, 2 * R, stroke=[argb(mine), argb(WHITE, 0.3), argb(mine)][0],
+                      width=max(1.5, u / 14))
+        elif mode == "pastel":
+            pastel = mix(mine, WHITE, 0.62)
+            c.ellipse(cx - R, cy - R, 2 * R, 2 * R, fill=argb(pastel))
+            c.gradient_rect(cx - R, cy - R, 2 * R, 2 * R, R, fill=[argb(WHITE, 0.55), argb(WHITE, 0.0)])
+            c.gradient_rect(cx - R, cy - R, 2 * R, 2 * R, R, stroke=self.rainbow(now, s=0.4, speed=0.08),
+                            width=max(2.0, u / 10))
+        else:
+            for k in range(4):                    # soft rainbow neon around the disc
+                c.gradient_rect(cx - R, cy - R, 2 * R, 2 * R, R, stroke=self.rainbow(now, a=0.16 / (k + 1)),
+                                width=(k + 1) * 0.12 * u)
+            c.ellipse(cx - R, cy - R, 2 * R, 2 * R, fill=argb((0.02, 0.02, 0.03)))
+            c.gradient_rect(cx - R * 0.94, cy - R * 0.94, 1.88 * R, 1.88 * R, R * 0.94,
+                            fill=[argb((0.02, 0.02, 0.03)), argb(mix((0.02, 0.02, 0.03), mine, 0.28))])
+            c.gradient_rect(cx - R, cy - R, 2 * R, 2 * R, R, stroke=self.rainbow(now), width=max(2.0, u / 9))
+
+        # ring: track, ticks, value (team color), glow
+        box = (cx - rr, cy - rr, 2 * rr, 2 * rr)
+        track = {"enhanced": argb(WHITE, 0.1), "pastel": argb(WHITE, 0.75), "black": argb(WHITE, 0.08)}[mode]
+        c.arc(*box, start, sweep, track, ring_w)
+        for k in range(11):                        # little marks every 10 %
+            a = math.radians(start + sweep * k / 10)
+            r1, r2 = rr - ring_w / 2 - 0.12 * u, rr - ring_w / 2 - (0.32 if k % 5 == 0 else 0.22) * u
+            mark = argb((0.25, 0.22, 0.35), 0.5) if mode == "pastel" else argb(WHITE, 0.35)
+            c.line(cx + r1 * math.cos(a), cy + r1 * math.sin(a), cx + r2 * math.cos(a), cy + r2 * math.sin(a),
+                   mark, max(1.0, u / 18))
+        if low:
+            arc_col = [argb(mix((1.0, 0.25, 0.25), WHITE, 0.3 * lowp)), argb((1.0, 0.35, 0.3))]
+        elif mode == "pastel":
+            arc_col = [argb(mix(mine, WHITE, 0.25)), argb(mine)]
+        elif mode == "black" and frac >= 0.999:
+            arc_col = self.rainbow(now)
+        else:
+            arc_col = [argb(mix(mine, WHITE, 0.45)), argb(mine), argb(mix(mine, WHITE, 0.2))]
+        if frac > 0.005:
+            glow_a = 0.18 + 0.25 * boostp + 0.35 * jump
+            for k in range(3):
+                c.arc(*box, start, sweep * frac, argb(mine if not low else (1.0, 0.3, 0.3), glow_a / (k + 1)),
+                      ring_w + (k + 1) * 0.28 * u)
+            c.arc(*box, start, sweep * frac, arc_col, ring_w)
+            c.arc(cx - rr + ring_w * 0.2, cy - rr + ring_w * 0.2, 2 * rr - ring_w * 0.4, 2 * rr - ring_w * 0.4,
+                  start, sweep * frac, argb(WHITE, 0.25 + 0.3 * jump), ring_w * 0.18)        # shiny inner line
+            # the tip: a bright dot (sparks fly while boosting)
+            a = math.radians(start + sweep * frac)
+            tx, ty = cx + rr * math.cos(a), cy + rr * math.sin(a)
+            c.ellipse(tx - ring_w * 0.42, ty - ring_w * 0.42, ring_w * 0.84, ring_w * 0.84,
+                      fill=argb(WHITE, 0.55 + 0.4 * boostp))
+            if self.boosting and dt:
+                for _ in range(2):
+                    ang = a + math.pi / 2 + (random.random() - 0.5) * 1.2
+                    sp = (1.5 + random.random() * 2.5) * u
+                    self.sparks.append([tx, ty, math.cos(ang) * sp, math.sin(ang) * sp, now,
+                                        mix(mine, gold, random.random())])
+        if frac >= 0.999 and not self.boosting:     # full tank: a light runs around the ring
+            a = math.radians(start + sweep * ((now * 0.5) % 1.0))
+            c.ellipse(cx + rr * math.cos(a) - ring_w * 0.5, cy + rr * math.sin(a) - ring_w * 0.5, ring_w, ring_w,
+                      fill=argb(WHITE, 0.7))
+        alive = []
+        for sp in self.sparks:
+            age = now - sp[4]
+            if age > 0.45:
+                continue
+            sp[0] += sp[2] * dt
+            sp[1] += sp[3] * dt
+            alive.append(sp)
+            r = 0.09 * u * (1 - age / 0.45) + 0.02 * u
+            c.ellipse(sp[0] - r, sp[1] - r, 2 * r, 2 * r, fill=argb(sp[5], 1 - age / 0.45))
+        self.sparks = alive[-80:]
+
+        # the number + "BOOST"
+        scale = 1.0 + 0.35 * jump * jump
+        size = 1.75 * u * scale
+        label = str(int(round(val)))
+        if mode == "enhanced":
+            fill = argb(mix(WHITE, (1.0, 0.3, 0.3), lowp)) if low else argb(WHITE)
+            outline, ow = argb((0, 0, 0), 0.6), max(2.0, u / 8)
+            small = argb((0.75, 0.75, 0.82))
+        elif mode == "pastel":
+            hh, ss, _ = colorsys.rgb_to_hsv(*mine)
+            ink = colorsys.hsv_to_rgb(hh, min(1.0, ss * 0.9 + 0.1), 0.42)
+            fill = argb(mix(ink, (0.85, 0.1, 0.2), lowp)) if low else argb(ink)
+            outline, ow = argb(WHITE, 0.85), max(2.0, u / 9)
+            small = argb(mix(ink, WHITE, 0.25))
+        else:
+            fill = argb(mix((1.0, 0.25, 0.25), WHITE, lowp)) if low else \
+                [argb(mix(mine, WHITE, 0.55)), argb(mix(mine, WHITE, 0.15)), argb(mix(mine, WHITE, 0.55))]
+            outline, ow = argb((0, 0, 0), 0.9), max(2.0, u / 8)
+            small = argb(mix(mine, WHITE, 0.4))
+        bw = 2.6 * u
+        self.number(c, label, cx - bw / 2, cy - 1.05 * u, bw, 1.9 * u, size, fill, bold, font, outline, ow)
+        c.text("BOOST", cx - 2 * u, cy + 0.75 * u, 4 * u, 0.6 * u, 0.36 * u, small, bold=True, font=font)
+
+    def busy(self, now):
+        return bool(self.sparks or self.boosting or (self.jump_at and now - self.jump_at < 0.7)
+                    or abs((self.boost or 0) - self.shown_boost) > 0.3)
+
+
+class ChestWidget(ArgbWidget):
+    """Fortnite chest counter: press your chest key when you open one (Fortnite sends no data about chests).
+    Resets by itself when a new match starts; keeps today, total and the record per match."""
+    kind = "chests"
+    OPEN_TIME = 1.1
+
+    def __init__(self, app, wid):
+        super().__init__(app, wid)
+        self.opened_at = -9.0
+        self.prompt = False
+        self.last_draw = 0.0
+        self.sparkles = []
+        self.build()
+
+    def build(self):
+        u = self.u
+        self.make_canvas(7.6 * u, 3.5 * u)
+        self.place()
+        self.refresh()
+
+    def has_content(self):
+        return FORTNITE_EXE in self.app.running or self.prompt
+
+    @property
+    def key(self):
+        k = self.wcfg.get("key") or ["m", "X2"]
+        return tuple(k)
+
+    def add(self, n):
+        st = self.app.stats
+        st.check_day()
+        d = st.data
+        d["fn_match"] = max(0, d.get("fn_match", 0) + n)
+        d["fn_today"] = max(0, d.get("fn_today", 0) + n)
+        d["fn_total"] = max(0, d.get("fn_total", 0) + n)
+        d["fn_best"] = max(d.get("fn_best", 0), d["fn_match"])
+        if n > 0:
+            now = time.monotonic()
+            self.opened_at = now
+            u = self.u
+            for _ in range(18):                    # golden sparkles out of the chest
+                a = -math.pi / 2 + (random.random() - 0.5) * 2.2
+                sp = (1.2 + random.random() * 2.2) * u
+                self.sparkles.append([1.5 * u, 1.2 * u, math.cos(a) * sp, math.sin(a) * sp, now])
+        if self.shown:
+            self.redraw()
+
+    def match_started(self):
+        self.app.stats.data["fn_match"] = 0
+        if self.shown:
+            self.redraw()
+
+    def draw(self, c, now):
+        dt = min(0.1, now - self.last_draw) if self.last_draw else 0.0
+        self.last_draw = now
+        u, app = self.u, self.app
+        d = app.stats.data
+        panel(c, self.w, self.h, u, app, now)
+        t = (now - self.opened_at) / self.OPEN_TIME
+        opening = 0 <= t < 1
+        lid = math.sin(math.pi * min(1.0, t * 1.6)) if opening else 0.0      # lid opens and closes again
+        gold, gold_dark = (1.0, 0.8, 0.25), (0.75, 0.5, 0.1)
+        wood, wood_dark = (0.55, 0.32, 0.16), (0.36, 0.2, 0.1)
+        ink = argb((0.08, 0.05, 0.03))
+        line = max(1.2, u * 0.07)
+        cx, base = 1.5 * u, 2.05 * u                      # the chest (an original little drawing)
+        bw, bh = 2.0 * u, 0.85 * u
+        if opening:                                      # golden light rays from inside
+            for k in range(9):
+                a = -math.pi / 2 + (k - 4) * 0.28 + math.sin(now * 3 + k) * 0.05
+                L = (1.1 + 0.3 * math.sin(now * 7 + k)) * u * lid
+                c.polygon([(cx - 0.12 * u, base - bh), (cx + 0.12 * u, base - bh),
+                           (cx + math.cos(a + 0.08) * L, base - bh + math.sin(a + 0.08) * L),
+                           (cx + math.cos(a - 0.08) * L, base - bh + math.sin(a - 0.08) * L)],
+                          fill=argb(gold, 0.35 * lid))
+        c.round_rect(cx - bw / 2, base - bh, bw, bh, 0.12 * u, fill=argb(wood), stroke=ink, width=line)
+        c.round_rect(cx - bw / 2 + 0.1 * u, base - bh + 0.1 * u, bw - 0.2 * u, bh * 0.35, 0.06 * u,
+                     fill=argb(mix(wood, WHITE, 0.12)))
+        for bx in (cx - bw / 2 + 0.28 * u, cx + bw / 2 - 0.5 * u):                # metal bands
+            c.round_rect(bx, base - bh, 0.22 * u, bh, 0.04 * u, fill=argb(gold_dark), stroke=ink, width=line * 0.6)
+        lift = lid * 0.45 * u                                                    # the lid
+        lid_h = 0.6 * u
+        ly = base - bh - lid_h - lift
+        if opening and lid > 0.05:
+            c.ellipse(cx - bw / 2 + 0.2 * u, base - bh - 0.25 * u, bw - 0.4 * u, 0.5 * u, fill=argb(gold, 0.85 * lid))
+        c.round_rect(cx - bw / 2 - 0.05 * u, ly, bw + 0.1 * u, lid_h, 0.4 * u, fill=argb(wood_dark), stroke=ink,
+                     width=line)
+        for bx in (cx - bw / 2 + 0.28 * u, cx + bw / 2 - 0.5 * u):
+            c.round_rect(bx, ly, 0.22 * u, lid_h, 0.04 * u, fill=argb(gold_dark), stroke=ink, width=line * 0.6)
+        c.round_rect(cx - 0.22 * u, base - bh - 0.15 * u - lift * 0.3, 0.44 * u, 0.5 * u, 0.08 * u,
+                     fill=argb(gold), stroke=ink, width=line * 0.7)                   # lock
+        alive = []
+        for sp in self.sparkles:
+            age = now - sp[4]
+            if age > 0.9:
+                continue
+            sp[0] += sp[2] * dt
+            sp[1] += sp[3] * dt
+            sp[3] += 3.5 * u * dt
+            alive.append(sp)
+            r = 0.1 * u * (1 - age / 0.9) + 0.02 * u
+            c.ellipse(sp[0] - r, sp[1] - r, 2 * r, 2 * r, fill=argb(mix(gold, WHITE, 0.4), 1 - age / 0.9))
+        self.sparkles = alive
+
+        tx = 3.1 * u
+        tw = self.w - tx - 0.3 * u
+        if self.prompt:
+            c.text(T("fn_prompt"), tx, 0.3 * u, tw, 2.6 * u, 0.34 * u, argb((1.0, 0.85, 0.4)), bold=True)
+            return
+        pop = 1.0 + (0.4 * math.exp(-6 * t) * math.cos(t * 10) if opening else 0.0)
+        colors = [argb(mix(gold, WHITE, 0.3)), argb(gold), argb((1.0, 0.6, 0.15))]
+        c.text(str(d.get("fn_match", 0)), tx - tw, 0.1 * u, 3 * tw, 1.5 * u, 1.15 * u * pop, colors,
+               outline=argb((0, 0, 0), 0.6), outline_w=u / 10)
+        c.text(T("fn_match"), tx, 1.5 * u, tw, 0.5 * u, 0.32 * u, argb((0.62, 0.62, 0.7)))
+        running = FORTNITE_EXE in app.running
+        c.line(0.5 * u, 2.25 * u, self.w - 0.5 * u, 2.25 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+        c.text(T("fn_line").format(d.get("fn_today", 0), d.get("fn_total", 0), d.get("fn_best", 0)), 0, 2.3 * u,
+               self.w, 0.55 * u, 0.3 * u, argb((0.85, 0.85, 0.9)), bold=False)
+        hint = T("fn_hint").format(key_label(self.key)) if running else T("fn_closed")
+        c.text(hint, 0, 2.8 * u, self.w, 0.5 * u, 0.26 * u, argb((0.62, 0.62, 0.7)), bold=False)
+
+    def tick(self, now):
+        if not self.shown:
+            return
+        busy = now - self.opened_at < self.OPEN_TIME + 0.1 or self.sparkles
+        if (busy and now - self.last_draw > 1 / FPS) or now - self.last_draw >= 1.0:
+            self.redraw()
+
+    def menu_items(self, add, checked):
+        add(0, 850, T("fn_plus"))
+        add(0, 851, T("fn_minus"))
+        add(0x800, 0, None)
+        add(0x1, 0, T("fn_key").format(key_label(self.key)))
+        add(0, 852, T("fn_change"))
+        add(0x800, 0, None)
+        add(0, 853, T("fn_reset_match"))
+        add(0, 854, T("fn_reset_all"))
+
+    def menu_command(self, cmd):
+        d = self.app.stats.data
+        if cmd == 850:
+            self.add(1)
+        elif cmd == 851:
+            self.add(-1)
+        elif cmd == 852:
+            self.prompt = True
+            self.app.chest_capture = self
+            self.refresh()
+        elif cmd == 853:
+            d["fn_match"] = 0
+        elif cmd == 854:
+            d.update(fn_match=0, fn_today=0, fn_total=0, fn_best=0)
+        else:
+            return False
+        self.redraw()
+        return True
+
+    def set_key(self, kid):
+        self.prompt = False
+        self.app.chest_capture = None
+        if kid is not None:
+            self.wcfg["key"] = list(kid)
+            save_settings(self.app.cfg)
+        self.refresh()
 
 
 class DashWidget(ArgbWidget):
@@ -4273,7 +4768,8 @@ class HintWidget(ArgbWidget):
 
 WIDGET_CLASSES = {"player": PlayerWidget, "stats": StatsWidget, "cat": CatWidget, "text": TextWidget,
                   "image": ImageWidget, "session": SessionWidget, "rocket": RocketWidget, "dash": DashWidget,
-                  "scoreboard": ScoreboardWidget}
+                  "scoreboard": ScoreboardWidget, "boost": BoostWidget,
+                  "chests": ChestWidget}
 
 
 GD_JUMP_KEYS = {M("L"), S(0x39), E(0x48), S(0x11)}         # click, Space, Up arrow, W
@@ -4286,6 +4782,7 @@ class App:
         self.dpi = user32.GetDpiForSystem() / 96.0
         self.editing = False
         self.capturing = None
+        self.chest_capture = None
         self.bind_ok = {}
         self.held = set()
         self.ticks = 0
@@ -4314,6 +4811,8 @@ class App:
             self.create_widget(wid)
         self.hint = HintWidget(self)
         self.register_binds()
+        user32.RegisterHotKey(self.hwnd, 1100, 3, 0x21)          # Ctrl+Alt+PageUp   = clicks louder
+        user32.RegisterHotKey(self.hwnd, 1101, 3, 0x22)          # Ctrl+Alt+PageDown = clicks quieter
         user32.SetTimer(self.hwnd, 1, int(1000 / FPS), None)
         self.add_tray_icon()
         if not cfg["welcomed"]:
@@ -4333,6 +4832,9 @@ class App:
             widget.set_editing(True)
         return widget
 
+    def widgets_of(self, kind):
+        return [w for w in self.widgets.values() if w.kind == kind]
+
     @property
     def player(self):
         return next((w for w in self.widgets.values() if w.kind == "player"), None)
@@ -4348,6 +4850,9 @@ class App:
         if kind == "scoreboard":                  # top center, over the game's own scoreboard
             screen_w = user32.GetSystemMetrics(0)
             return (screen_w - widget.w) // 2, 0
+        if kind == "boost":                       # bottom right, over the game's boost meter
+            sw, sh = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+            return int(sw * 0.909 - widget.w / 2), int(sh * 0.852 - widget.h / 2)
         if kind == "keyboard" or kb is None:
             corner = self.cfg.get("corner", "bottom-left")
             m = int(20 * self.dpi)
@@ -4497,7 +5002,7 @@ class App:
             self.gd_seconds += elapsed
         self.note_games(now)
         rocket = next((w for w in self.widgets.values() if w.kind == "rocket"), None)
-        rl_widgets = [w for w in self.widgets.values() if w.kind in ("rocket", "scoreboard")
+        rl_widgets = [w for w in self.widgets.values() if w.kind in ("rocket",) + RL_STYLE_KINDS
                       and w.wcfg.get("visible", True)]
         want = bool(rl_widgets and self.cfg["visible"]
                     and ("rocketleague.exe" in self.running or (rocket and rocket.connected)))
@@ -4505,8 +5010,13 @@ class App:
             rl_wanted.set()
         else:
             rl_wanted.clear()
+        chest = self.widgets_of("chests")
+        if chest and chest[0].wcfg.get("visible", True) and FORTNITE_EXE in self.running:
+            fn_wanted.set()
+        else:
+            fn_wanted.clear()
         for w in self.widgets.values():
-            if w.kind in ("rocket", "dash"):
+            if w.kind in ("rocket", "dash", "chests"):
                 w.refresh()
         state = ctypes.c_int(0)
         try:
@@ -4606,6 +5116,9 @@ class App:
             if msg in (WM_TIMER, WM_APP):
                 self.tick(msg == WM_TIMER)
                 return 0
+            if msg == WM_HOTKEY and wparam in (1100, 1101):
+                self.change_click_volume(1 if wparam == 1100 else -1)
+                return 0
             if msg == WM_HOTKEY and 1000 <= wparam < 1000 + len(MEDIA_ACTIONS):
                 self.media_action(MEDIA_ACTIONS[wparam - 1000])
                 return 0
@@ -4630,9 +5143,12 @@ class App:
                     pl = self.player
                     if pl:
                         pl.set_state(val)
+                elif kind == "fn":
+                    for w in self.widgets_of("chests"):
+                        w.match_started()
                 elif kind == "rl":
                     for w in list(self.widgets.values()):
-                        if w.kind in ("rocket", "scoreboard"):
+                        if w.kind in ("rocket",) + RL_STYLE_KINDS:
                             w.on_rl(*val)
                 elif kind == "sound_error":
                     self.sound_failed(val)
@@ -4662,6 +5178,15 @@ class App:
                     save_settings(self.cfg)
 
     def on_input(self, kind, kid):
+        if kind == "down" and self.chest_capture:                 # choosing the chest key
+            if kid == S(0x01):                                   # Esc = cancel
+                self.chest_capture.set_key(None)
+            elif kid not in (M("L"), M("R"), M("WU"), M("WD")) and kid not in MODIFIER_IDS:
+                self.chest_capture.set_key(kid)
+            return
+        if kind == "down" and self.widgets_of("chests") and kid == self.widgets_of("chests")[0].key \
+                and foreground_program() == FORTNITE_EXE:
+            self.widgets_of("chests")[0].add(1)
         if kind == "down":
             if self.capturing and kid not in MODIFIER_IDS and kid[0] != "m":
                 self.finish_capture(kid)
@@ -4767,7 +5292,7 @@ class App:
             add(snd, checked(cfg["sound_choice"] == "custom"), 210, T("own").format(name))
         add(snd, 0, 211, T("upload"))
         add(snd, 0x800, 0, None)
-        volumes = [v / 10 for v in range(10, 0, -1)]
+        volumes = CLICK_VOLUMES
         for i, v in enumerate(volumes):
             add(vol, checked(abs(cfg["volume"] - v) < 0.01), 220 + i, f"{int(v * 100)} %")
         add(snd, 0x10, vol, T("click_volume"))
@@ -4818,6 +5343,7 @@ class App:
         add(wmenu, 0, 650, T("add_text"))
         add(wmenu, 0, 651, T("add_image"))
         add(wmenu, 0x800, 0, None)
+        add(wmenu, 0, 664, T("home_all"))
         corners = ("bottom-left", "bottom-right", "top-left", "top-right")
         for i, c in enumerate(corners):
             add(wmenu, 0, 660 + i, f"{T('reset_layout')}: {T(c)}")
@@ -4910,6 +5436,8 @@ class App:
             self.add_widget("image")
         elif 660 <= cmd < 664:
             self.reset_layout(corners[cmd - 660])
+        elif cmd == 664:
+            self.reset_layout()
 
     def widget_menu(self, w):
         """Right-click on a widget while moving them."""
@@ -4922,9 +5450,12 @@ class App:
         add(0, 1, T("bigger"))
         add(0, 2, T("smaller"))
         levels = (1.0, 0.9, 0.75, 0.6, 0.45)
+        own = getattr(w, "own_opacity", False)
+        current = w.opacity() if own else cfg["opacity"]
         for i, v in enumerate(levels):
-            add_raw(opacity, checked(abs(cfg["opacity"] - v) < 0.01), 10 + i, f"{int(v * 100)} %")
+            add_raw(opacity, checked(abs(current - v) < 0.01), 10 + i, f"{int(v * 100)} %")
         add(0x10, opacity, T("opacity"))
+        add(0, 5, T("home_widget"))
         add(0, 3, T("hide_widget"))
         if w.kind in ("text", "image"):
             add(0, 4, T("remove_widget"))
@@ -4939,6 +5470,11 @@ class App:
                 save_settings(cfg)
         elif cmd in (1, 2):
             self.resize_widget(w, 1 if cmd == 1 else -1)
+        elif 10 <= cmd < 10 + len(levels) and own:
+            w.wcfg["opacity"] = levels[cmd - 10]
+            w.redraw()
+            w.sync_style()
+            save_settings(cfg)
         elif 10 <= cmd < 10 + len(levels):
             cfg["opacity"] = levels[cmd - 10]
             for x in self.widgets.values():
@@ -4946,6 +5482,11 @@ class App:
                     user32.SetLayeredWindowAttributes(x.hwnd, TRANSPARENT_KEY, int(cfg["opacity"] * 255), 3)
                 x.refresh()
             save_settings(cfg)
+        elif cmd == 5:                             # back to where it was when it was new
+            w.wcfg["x"] = w.wcfg["y"] = None
+            w.place()
+            save_settings(cfg)
+            w.refresh()
         elif cmd == 3:
             w.wcfg["visible"] = False
             save_settings(cfg)
@@ -5001,6 +5542,20 @@ class App:
     # ---------- music shortcuts
     def binds(self):
         return {**DEFAULTS["binds"], **(self.cfg.get("binds") or {})}
+
+    def change_click_volume(self, step):
+        """Ctrl+Alt+PageUp / PageDown: click volume +- 10 % (up to 200 %), you hear the new volume at once."""
+        levels = sorted(CLICK_VOLUMES)
+        cur = self.cfg["volume"]
+        if step > 0:
+            new = next((v for v in levels if v > cur + 0.001), levels[-1])
+        else:
+            new = next((v for v in reversed(levels) if v < cur - 0.001), levels[0])
+        self.cfg["volume"] = new
+        self.set_sound(self.cfg["sound_choice"])
+        for w in self.widgets.values():
+            if w.kind == "stats":
+                w.flash_volume(new)
 
     def register_binds(self):
         for i in range(len(MEDIA_ACTIONS)):
@@ -5068,6 +5623,8 @@ class App:
         save_settings(self.cfg)
         for i in range(len(MEDIA_ACTIONS)):
             user32.UnregisterHotKey(self.hwnd, 1000 + i)
+        user32.UnregisterHotKey(self.hwnd, 1100)
+        user32.UnregisterHotKey(self.hwnd, 1101)
         for w in list(self.widgets.values()):
             w.close()
         self.hint.close()
@@ -5126,6 +5683,7 @@ def main():
     start(input_loop, True)
     start(media_worker)
     start(rl_worker)
+    start(fortnite_worker)
 
     signal.signal(signal.SIGINT, lambda *_: user32.PostQuitMessage(0))
     print("Keyboard Sound is running.  Ctrl+Alt+F11 = move widgets, Ctrl+Alt+F12 (or Ctrl+C here) = quit")
