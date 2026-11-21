@@ -71,6 +71,8 @@
   .shot img.s-text { left: 3%; bottom: auto; top: 7%; width: 14%; }
   .wgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; }
   .wgrid .wcard.wide { grid-column: span 2; }
+  .wcard .pic.sb-pics { height: auto; padding: 12px 0; gap: 8px; }
+  .wcard .pic.sb-pics img { max-width: 80%; max-height: 52px; }
   @media (max-width: 560px) { .wgrid .wcard.wide { grid-column: auto; } }
   .wcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
   .wcard .pic { height: 150px; display: grid; place-items: center; border-radius: 10px; background: radial-gradient(90% 120% at 30% 0%, #2a2350 0%, #0f0f15 75%); }
@@ -176,8 +178,8 @@
       </button>
     </div>
     <div class="meta">
-      <span class="cs">Verze 1.4 · KeyboardSound.zip · cca 10 MB · bez instalace</span>
-      <span class="en">Version 1.4 · KeyboardSound.zip · about 10 MB · no installation</span>
+      <span class="cs">Verze 1.5 · KeyboardSound.zip · cca 10 MB · bez instalace</span>
+      <span class="en">Version 1.5 · KeyboardSound.zip · about 10 MB · no installation</span>
     </div>
   </div>
 
@@ -204,6 +206,10 @@
         <b>🚗 Rocket League</b>
         <span class="d cs">Živé skóre, čas, tvůj boost, góly, střely a zákroky a kolik zápasů jsi dnes vyhrál. Data posílá sama hra (oficiální Stats API), nic se do ní nevkládá.</span>
         <span class="d en">Live score, time, your boost, goals, shots and saves, and how many matches you won today. The game sends the data itself (official Stats API), nothing is injected.</span></div>
+      <div class="wcard wide"><div class="pic sb-pics"><img src="score-enhanced.png" alt="Enhanced score" loading="lazy"><img src="score-pastel.png" alt="Pastel RGB score" loading="lazy"><img src="score-black.png" alt="Black RGB score" loading="lazy"></div>
+        <b><span class="cs">🏆 Skóre Rocket League</span><span class="en">🏆 Rocket League score</span></b>
+        <span class="d cs">Skóre a čas nahoře uprostřed, stejně velké jako ve hře. Vzhled vylepšený, pastelový RGB nebo černý RGB a jakékoliv písmo.</span>
+        <span class="d en">Score and time at the top center, the same size as in the game. Enhanced, pastel RGB or black RGB look, and any font.</span></div>
       <div class="wcard"><div class="pic"><img src="dash.png" alt="Geometry Dash" loading="lazy"></div>
         <b>🟩 Geometry Dash</b>
         <span class="d cs">Kostička skáče s tebou a počítá skoky (klik, mezerník, šipka nahoru, W), dnes i celkem, a jak dlouho hraješ.</span>

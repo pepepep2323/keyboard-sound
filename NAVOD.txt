@@ -46,6 +46,7 @@ PŘESUNUTÍ A VELIKOST
         kočka: barva, vynulovat počítadlo
         čas hraní: vynulovat, pozastavit
         Rocket League: živá data, bez okraje, vynulovat výhry
+        skóre Rocket League: vzhled, písmo, tučně, zpět nahoru
         Geometry Dash: vynulovat skoky
         statistiky: vynulovat dnešek / rekord
         text: upravit text, barva, tučně, pozadí
@@ -79,6 +80,13 @@ ROCKET LEAGUE
   Zapnutí: zavři Rocket League, menu > Hry > živá data, spusť hru.
   Aby byly widgety ve hře vidět: zavři hru, menu > Hry > celá
   obrazovka bez okraje. Vypadá to stejně jako normální celá obrazovka.
+
+SKÓRE ROCKET LEAGUE
+  Počítadlo skóre a času nahoře uprostřed obrazovky, stejně velké jako
+  to ve hře, takže ho překryje. Ukáže se jen během zápasu.
+  Vzhled: Vylepšený (modrá a oranžová, při gólu bliká), Pastelový RGB,
+  Černý RGB. Písmo si vybereš ze seznamu nebo jakékoliv nainstalované
+  (Jiné písmo...). Ctrl+Alt+F11 a pravý klik na počítadlo.
 
 GEOMETRY DASH
   Kostička skáče s tebou a počítá skoky (klik, mezerník, šipka
@@ -173,6 +181,7 @@ MOVE AND RESIZE
         cat: color, reset counter
         session timer: reset, pause
         Rocket League: live data, borderless, reset wins
+        Rocket League score: look, font, bold, back to top
         Geometry Dash: reset jumps
         stats: reset today / record
         text: edit text, color, bold, background
@@ -206,6 +215,13 @@ ROCKET LEAGUE
   Turn on: close Rocket League, menu > Games > live data, start the game.
   To see the widgets in the game: close it, menu > Games > borderless
   fullscreen. It looks the same as normal fullscreen.
+
+ROCKET LEAGUE SCORE
+  A score and time counter at the top center of the screen, the same size
+  as the game's own, so it covers it. Only shows during a match.
+  Looks: Enhanced (blue and orange, flashes on a goal), Pastel RGB,
+  Black RGB. Pick a font from the list or any installed font
+  (Other font...). Ctrl+Alt+F11, then right-click the counter.
 
 GEOMETRY DASH
   A little cube jumps with you and counts your jumps (click, Space,

@@ -149,6 +149,17 @@ def main():
     rocket.redraw()
     snapshot(rocket, "rocket.png")
 
+    sb = app.widgets["scoreboard"]
+    sb.wcfg["size"] = size
+    sb.build()
+    sb.on_rl("UpdateState", {"Game": {"Teams": [{"TeamNum": 0, "Score": 2}, {"TeamNum": 1, "Score": 1}],
+                                      "TimeSeconds": 167, "bOvertime": False}})
+    for mode in ks.SB_MODES:
+        sb.wcfg["mode"] = mode
+        sb.redraw()
+        snapshot(sb, f"score-{mode}.png")
+    sb.wcfg["mode"] = "enhanced"
+
     dash = app.widgets["dash"]
     app.gd_seconds = 754
     app.running = app.running | {"geometrydash.exe"}

@@ -11,6 +11,8 @@ Works on Windows 10/11, in games too (borderless / windowed fullscreen).
 
 ![rocket league](docs/rocket.png) ![geometry dash](docs/dash.png) ![session](docs/session.png)
 
+![score enhanced](docs/score-enhanced.png) ![score pastel](docs/score-pastel.png) ![score black](docs/score-black.png)
+
 ## Download
 
 **[⬇ Download KeyboardSound.zip](../../releases/latest)**. Unzip it and run `KeyboardSound.exe`.
@@ -30,6 +32,8 @@ If Windows says *"Windows protected your PC"*, click **More info → Run anyway*
 - ⏱️ **Session timer**: how long you've played, the time, and how long the current game runs
 - 🚗 **Rocket League widget**: live score, time, your boost, goals / shots / saves, wins today
   (from the game's official Stats API: nothing is injected into the game)
+- 🏆 **Rocket League score counter**: score and time at the top, the same size as the game's own,
+  in 3 looks (enhanced, pastel RGB, black RGB) with any font you like
 - 🟩 **Geometry Dash widget**: a cube that jumps with you and counts your jumps
 - 🎵 **Music control** (Spotify, YouTube, …): player panel with cover, title, volume and a clickable progress bar,
   shortcuts to play/pause, skip, seek and change the **music volume** (only the music app, not the game) —

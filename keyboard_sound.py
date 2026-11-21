@@ -43,7 +43,8 @@ from ctypes import wintypes
 
 # ---------------------------------------------------------------- settings
 APP_NAME = "Keyboard Sound"
-WIDGET_TYPES = ["keyboard", "mouse", "player", "stats", "cat", "session", "rocket", "dash", "text", "image"]
+WIDGET_TYPES = ["keyboard", "mouse", "player", "stats", "cat", "session", "rocket", "scoreboard", "dash", "text",
+                "image"]
 FROZEN = getattr(sys, "frozen", False)               # True when running as KeyboardSound.exe
 HERE = os.path.dirname(os.path.abspath(__file__))
 RES_DIR = getattr(sys, "_MEIPASS", HERE)             # where bundled files are inside the .exe
@@ -162,6 +163,9 @@ HRY
   Widgety jsou vidět jen v režimu "okno bez okraje"
   (borderless), ne v exkluzivní celé obrazovce.
   Rocket League přepneš jedním klikem: menu > Hry.
+  Skóre Rocket League = počítadlo skóre a času nahoře uprostřed, stejně
+  velké jako to ve hře. 3 vzhledy (vylepšený, pastelový RGB, černý RGB)
+  a libovolné písmo: Ctrl+Alt+F11 a pravý klik na něj.
   Widget Rocket League ukazuje skóre, čas, tvůj boost a výhry
   (zapni menu > Hry > živá data, pak restartuj hru).
   Widget Geometry Dash počítá skoky a čas hraní.
@@ -211,6 +215,9 @@ GAMES
   Widgets are only visible in borderless / windowed
   fullscreen, not in exclusive fullscreen.
   Rocket League can be switched with one click: menu > Games.
+  Rocket League score = a score and time counter at the top center, the
+  same size as the game's own. 3 looks (enhanced, pastel RGB, black RGB)
+  and any font: Ctrl+Alt+F11, then right-click it.
   The Rocket League widget shows the score, time, your boost and wins
   (turn on menu > Games > live data, then restart the game).
   The Geometry Dash widget counts your jumps and play time.
@@ -285,6 +292,9 @@ TEXTS = {
         "rl_reset": "Vynulovat výhry / prohry",
         "gd_jumps": "skoků dnes", "gd_total": "celkem {}", "gd_closed": "Spusť Geometry Dash",
         "rl_win": "VÝHRA!", "rl_loss": "PROHRA", "rl_enable_hint": "Zapni živá data: menu > Hry",
+        "w_scoreboard": "Skóre Rocket League", "sb_mode": "Vzhled", "sb_enhanced": "Vylepšený",
+        "sb_pastel": "Pastelový RGB", "sb_black": "Černý RGB", "sb_font": "Písmo", "sb_font_other": "Jiné písmo...",
+        "sb_bold": "Tučné písmo", "sb_top": "Zpět nahoru doprostřed",
         "gd_time": "Hraješ {}", "gd_reset": "Vynulovat dnešní skoky",
         "fs_title": "Widgety nebyly ve hře vidět",
         "fs_text": "{} běží v exkluzivní celé obrazovce, přes ni Windows nic nezobrazí.\n"
@@ -358,6 +368,9 @@ TEXTS = {
         "rl_reset": "Reset wins / losses",
         "gd_jumps": "jumps today", "gd_total": "total {}", "gd_closed": "Start Geometry Dash",
         "rl_win": "WIN!", "rl_loss": "LOSS", "rl_enable_hint": "Turn on live data: menu > Games",
+        "w_scoreboard": "Rocket League score", "sb_mode": "Look", "sb_enhanced": "Enhanced",
+        "sb_pastel": "Pastel RGB", "sb_black": "Black RGB", "sb_font": "Font", "sb_font_other": "Other font...",
+        "sb_bold": "Bold font", "sb_top": "Back to top center",
         "gd_time": "Playing {}", "gd_reset": "Reset today's jumps",
         "fs_title": "Widgets weren't visible in the game",
         "fs_text": "{} runs in exclusive fullscreen, Windows can't show anything over it.\n"
@@ -1043,8 +1056,15 @@ def default_widgets(old):
 NEW_WIDGETS = {          # built-in widgets added in later versions (added to old settings too)
     "session": {"type": "session", "visible": True},
     "rocket": {"type": "rocket", "visible": True},
+    "scoreboard": {"type": "scoreboard", "visible": True, "mode": "enhanced", "font": "Bahnschrift", "bold": True},
     "dash": {"type": "dash", "visible": True},
 }
+
+
+def scoreboard_default_size():
+    h = ctypes.windll.user32.GetSystemMetrics(1) or 1080
+    dpi = (ctypes.windll.user32.GetDpiForSystem() or 96) / 96.0
+    return max(16, int(round(37.5 * h / 1080 / dpi)))
 
 
 def load_settings():
@@ -1071,6 +1091,8 @@ def load_settings():
     for wid, w in NEW_WIDGETS.items():
         if not any(x["type"] == w["type"] for x in widgets.values()):
             size = (widgets.get("keyboard") or {}).get("size", 26)
+            if w["type"] == "scoreboard":                 # about as big as the game's own scoreboard
+                size = scoreboard_default_size()
             widgets[wid] = {**w, "x": None, "y": None, "size": size}
     cfg["widgets"] = widgets
     cfg["stats"] = {**DEFAULTS["stats"], **(cfg.get("stats") or {})}
@@ -1726,6 +1748,38 @@ class OPENFILENAMEW(ctypes.Structure):
                 ("dwReserved", wintypes.DWORD), ("FlagsEx", wintypes.DWORD)]
 
 
+class LOGFONTW(ctypes.Structure):
+    _fields_ = [("lfHeight", ctypes.c_long), ("lfWidth", ctypes.c_long), ("lfEscapement", ctypes.c_long),
+                ("lfOrientation", ctypes.c_long), ("lfWeight", ctypes.c_long), ("lfItalic", ctypes.c_ubyte),
+                ("lfUnderline", ctypes.c_ubyte), ("lfStrikeOut", ctypes.c_ubyte), ("lfCharSet", ctypes.c_ubyte),
+                ("lfOutPrecision", ctypes.c_ubyte), ("lfClipPrecision", ctypes.c_ubyte), ("lfQuality", ctypes.c_ubyte),
+                ("lfPitchAndFamily", ctypes.c_ubyte), ("lfFaceName", ctypes.c_wchar * 32)]
+
+
+class CHOOSEFONTW(ctypes.Structure):
+    _fields_ = [("lStructSize", wintypes.DWORD), ("hwndOwner", wintypes.HWND), ("hDC", wintypes.HDC),
+                ("lpLogFont", ctypes.POINTER(LOGFONTW)), ("iPointSize", ctypes.c_int), ("Flags", wintypes.DWORD),
+                ("rgbColors", wintypes.DWORD), ("lCustData", wintypes.LPARAM), ("lpfnHook", ctypes.c_void_p),
+                ("lpTemplateName", wintypes.LPCWSTR), ("hInstance", wintypes.HINSTANCE), ("lpszStyle", wintypes.LPWSTR),
+                ("nFontType", wintypes.WORD), ("_align", wintypes.WORD), ("nSizeMin", ctypes.c_int),
+                ("nSizeMax", ctypes.c_int)]
+
+
+def pick_font(current, bold):
+    """Windows' own font dialog; returns (font name, bold) or None."""
+    lf = LOGFONTW()
+    lf.lfFaceName = (current or "Segoe UI")[:31]
+    lf.lfWeight = 700 if bold else 400
+    lf.lfHeight = -24
+    cf = CHOOSEFONTW()
+    cf.lStructSize = ctypes.sizeof(CHOOSEFONTW)
+    cf.lpLogFont = ctypes.pointer(lf)
+    cf.Flags = 0x1 | 0x40 | 0x40000 | 0x1000000 | 0x800000     # screen fonts, start at current, TrueType, no vertical, no size
+    if not ctypes.windll.comdlg32.ChooseFontW(ctypes.byref(cf)):
+        return None
+    return lf.lfFaceName, lf.lfWeight >= 600
+
+
 def pick_sound_file():
     return pick_file(T("pick_title"), T("pick_filter"), "*.wav;*.mp3;*.m4a;*.ogg;*.flac;*.wma;*.aac")
 
@@ -1802,6 +1856,7 @@ for _name, _args in (
     ("GdipSetSolidFillColor", [_vp, wintypes.DWORD]),
     ("GdipDeleteBrush", [_vp]),
     ("GdipCreatePen1", [wintypes.DWORD, REAL, ctypes.c_int, _vp]),
+    ("GdipCreatePen2", [_vp, REAL, ctypes.c_int, _vp]),
     ("GdipDeletePen", [_vp]),
     ("GdipSetPenLineJoin", [_vp, ctypes.c_int]),
     ("GdipSetPenStartCap", [_vp, ctypes.c_int]),
@@ -1990,13 +2045,44 @@ class Canvas:
                                        (REAL * n)(*[i / (n - 1) for i in range(n)]), n)
         return brush
 
+    def line_brush(self, x1, y1, x2, y2, colors):
+        """Gradient brush from (x1, y1) to (x2, y2) through all colors (caller deletes it)."""
+        brush = ctypes.c_void_p()
+        if abs(x2 - x1) < 1 and abs(y2 - y1) < 1:
+            x2 = x1 + 1
+        p1, p2 = PointF(x1, y1), PointF(x2, y2)
+        gdiplus.GdipCreateLineBrush(ctypes.byref(p1), ctypes.byref(p2), colors[0], colors[-1], 0, ctypes.byref(brush))
+        n = len(colors)
+        if n > 2:
+            gdiplus.GdipSetLinePresetBlend(brush, (wintypes.DWORD * n)(*colors),
+                                           (REAL * n)(*[i / (n - 1) for i in range(n)]), n)
+        return brush
+
+    def gradient_rect(self, x, y, w, h, r, fill=None, stroke=None, width=1.0, vertical=True):
+        """Rounded rectangle filled and / or outlined with gradients (lists of ARGB colors)."""
+        self._round_path(x, y, w, h, r)
+        x2, y2 = (x, y + h) if vertical else (x + w, y)
+        if fill:
+            brush = self.line_brush(x, y, x2, y2, fill)
+            gdiplus.GdipFillPath(self.g, brush, self.path)
+            gdiplus.GdipDeleteBrush(brush)
+        if stroke:
+            brush = self.line_brush(x, y, x + w, y, stroke)
+            pen = ctypes.c_void_p()
+            gdiplus.GdipCreatePen2(brush, width, 0, ctypes.byref(pen))
+            gdiplus.GdipDrawPath(self.g, pen, self.path)
+            gdiplus.GdipDeletePen(pen)
+            gdiplus.GdipDeleteBrush(brush)
+
     def _text_path(self, text, x, y, w, h, size, bold, align, valign, font):
         gdiplus.GdipResetPath(self.path)
         gdiplus.GdipSetStringFormatAlign(self.fmt, align)          # 0 near, 1 center, 2 far
         gdiplus.GdipSetStringFormatLineAlign(self.fmt, valign)
         rect = RectF(x, y, w, h)
-        gdiplus.GdipAddPathString(self.path, text, -1, self.family(font), 1 if bold else 0, size,
-                                  ctypes.byref(rect), self.fmt)
+        if gdiplus.GdipAddPathString(self.path, text, -1, self.family(font), 1 if bold else 0, size,
+                                     ctypes.byref(rect), self.fmt) and bold:     # font has no bold: use regular
+            gdiplus.GdipResetPath(self.path)
+            gdiplus.GdipAddPathString(self.path, text, -1, self.family(font), 0, size, ctypes.byref(rect), self.fmt)
 
     def text(self, text, x, y, w, h, size, fill, bold=True, align=1, valign=1, outline=None, outline_w=0.0,
              font="Segoe UI"):
@@ -3432,6 +3518,208 @@ class RocketWidget(ArgbWidget):
         return True
 
 
+
+SB_MODES = ["enhanced", "pastel", "black"]
+SB_FONTS = ["Bahnschrift", "Segoe UI", "Arial Black", "Impact", "Verdana", "Trebuchet MS", "Consolas",
+            "Comic Sans MS", "Georgia", "Courier New"]
+
+
+def font_installed(name, cache={}):
+    if name not in cache:
+        ensure_gdiplus()
+        fam = ctypes.c_void_p()
+        cache[name] = not gdiplus.GdipCreateFontFamilyFromName(name, None, ctypes.byref(fam))
+        if cache[name]:
+            gdiplus.GdipDeleteFontFamily(fam)
+    return cache[name]
+
+
+class ScoreboardWidget(ArgbWidget):
+    """Rocket League score counter: blue score, match time, orange score - sits over the game's own scoreboard."""
+    kind = "scoreboard"
+    PULSE = 3.0
+
+    def __init__(self, app, wid):
+        super().__init__(app, wid)
+        self.in_match = False
+        self.scores, self.secs, self.ot = [0, 0], 300, False
+        self.goal = None                          # (team, time)
+        self.last_key = None
+        self.last_draw = 0.0
+        self.build()
+
+    def build(self):
+        u = self.u
+        # proportions of the game's own scoreboard (at 1080p: 75 px score boxes, 200 px time box, 80 px tall)
+        self.box_w, self.clock_w, self.gap, self.pad = 2.0 * u, 5.3 * u, 0.08 * u, 0.1 * u
+        self.box_h = 2.05 * u
+        self.make_canvas(2 * self.box_w + self.clock_w + 2 * self.gap + 2 * self.pad, self.box_h + 2 * self.pad)
+        self.place()
+        self.refresh()
+
+    def has_content(self):
+        return self.in_match
+
+    @property
+    def mode(self):
+        m = self.wcfg.get("mode", "enhanced")
+        return m if m in SB_MODES else "enhanced"
+
+    # ---------- data from the game
+    def on_rl(self, event, data):
+        data = data if isinstance(data, dict) else {}
+        was = self.in_match
+        if event in ("Connected", "Disconnected", "MatchDestroyed"):
+            self.in_match, self.scores, self.secs, self.ot, self.goal = False, [0, 0], 300, False, None
+        elif event == "UpdateState":
+            game = data.get("Game") or {}
+            teams = [t for t in game.get("Teams") or [] if isinstance(t, dict)]
+            self.in_match = bool(teams or data.get("Players"))
+            for t in teams:
+                if t.get("TeamNum") in (0, 1):
+                    self.scores[t["TeamNum"]] = int(t.get("Score") or 0)
+            if isinstance(game.get("TimeSeconds"), (int, float)):
+                self.secs = game["TimeSeconds"]
+            self.ot = bool(game.get("bOvertime"))
+        elif event == "ClockUpdatedSeconds":
+            if isinstance(data.get("TimeSeconds"), (int, float)):
+                self.secs = data["TimeSeconds"]
+            self.ot = bool(data.get("bOvertime", self.ot))
+        elif event == "GoalScored":
+            team = (data.get("Scorer") or {}).get("TeamNum")
+            if team in (0, 1):
+                self.goal = (team, time.monotonic())
+        elif event in ("MatchCreated", "MatchInitialized", "RoundStarted"):
+            self.in_match = True
+        if self.in_match != was:
+            self.refresh()
+
+    # ---------- drawing
+    def font(self):
+        name = self.wcfg.get("font") or "Bahnschrift"
+        return name if font_installed(name) else "Segoe UI"
+
+    def rainbow(self, now, n=6, s=1.0, v=1.0, offset=0.0, speed=0.12):
+        return [argb(colorsys.hsv_to_rgb((offset + i / (n - 1) * 0.8 - now * speed) % 1.0, s, v)) for i in range(n)]
+
+    def draw(self, c, now):
+        self.last_draw = now
+        u, mode, font = self.u, self.mode, self.font()
+        bold = self.wcfg.get("bold", True)
+        text_size = 1.08 * u                       # score and time: same text size, like in the game
+        x0, y0, bh, r = self.pad, self.pad, self.box_h, 0.34 * u
+        boxes = [(x0, 0), (x0 + self.box_w + self.gap, None), (x0 + self.box_w + 2 * self.gap + self.clock_w, 1)]
+        pulse = 0.0
+        if self.goal and now - self.goal[1] < self.PULSE:
+            pulse = 0.5 + 0.5 * math.cos((now - self.goal[1]) * 2 * math.pi * 1.5)
+            pulse *= 1.0 - (now - self.goal[1]) / self.PULSE
+        clock = ("+" if self.ot else "") + clock_text(self.secs, hours=False)
+
+        for i, (bx, team) in enumerate(boxes):
+            bw = self.clock_w if team is None else self.box_w
+            label = clock if team is None else str(self.scores[team])
+            team_col = None if team is None else (RL_BLUE if team == 0 else RL_ORANGE)
+            glowing = team is not None and self.goal and self.goal[0] == team and pulse > 0
+            if mode == "enhanced":
+                if glowing:                            # goal: the scoring team's box pulses
+                    for k in range(3):
+                        grow = (k + 1) * 0.03 * u
+                        c.round_rect(bx - grow, y0 - grow, bw + 2 * grow, bh + 2 * grow, r + grow,
+                                     fill=argb(team_col, 0.22 * pulse / (k + 1)))
+                if team is None:
+                    c.gradient_rect(bx, y0, bw, bh, r, fill=[argb((0.17, 0.17, 0.23), 0.95), argb((0.04, 0.04, 0.07), 0.95)])
+                    c.round_rect(bx + 0.5, y0 + 0.5, bw - 1, bh - 1, r, stroke=argb(WHITE, 0.18), width=max(1, u / 20))
+                    c.round_rect(bx + 0.3 * u, y0 + bh - 0.2 * u, bw / 2 - 0.3 * u, 0.08 * u, 0.04 * u, fill=argb(RL_BLUE))
+                    c.round_rect(bx + bw / 2, y0 + bh - 0.2 * u, bw / 2 - 0.3 * u, 0.08 * u, 0.04 * u, fill=argb(RL_ORANGE))
+                    fill = argb((1.0, 0.84, 0.3)) if self.ot else argb(WHITE)
+                else:
+                    light, dark = mix(team_col, WHITE, 0.3 + 0.3 * pulse if glowing else 0.3), mix(team_col, (0, 0, 0), 0.3)
+                    c.gradient_rect(bx, y0, bw, bh, r, fill=[argb(light), argb(team_col), argb(dark)])
+                    c.round_rect(bx + 0.1 * u, y0 + 0.08 * u, bw - 0.2 * u, bh * 0.42, r * 0.8, fill=argb(WHITE, 0.13))
+                    c.round_rect(bx + 0.5, y0 + 0.5, bw - 1, bh - 1, r, stroke=argb(WHITE, 0.35), width=max(1, u / 18))
+                    fill = argb(WHITE)
+                c.text(label, bx, y0, bw, bh, text_size, fill, bold=bold, outline=argb((0, 0, 0), 0.55),
+                       outline_w=max(1.5, u / 9), font=font)
+            elif mode == "pastel":
+                hue = (now * 0.06 + i * 0.13) % 1.0
+                base = colorsys.hsv_to_rgb(hue, 0.28 + (0.25 * pulse if glowing else 0), 1.0)
+                c.gradient_rect(bx, y0, bw, bh, r, fill=[argb(mix(base, WHITE, 0.35), 0.96), argb(base, 0.96)],
+                                stroke=self.rainbow(now, s=0.35, offset=i * 0.2, speed=0.06), width=max(1.5, u / 12))
+                if team is not None:                   # pastel blue / orange strip = which team
+                    strip = (0.55, 0.74, 1.0) if team == 0 else (1.0, 0.72, 0.5)
+                    c.round_rect(bx + 0.35 * u, y0 + bh - 0.22 * u, bw - 0.7 * u, 0.1 * u, 0.05 * u, fill=argb(strip))
+                ink = (0.6, 0.42, 0.05) if (team is None and self.ot) else (0.2, 0.18, 0.32)
+                c.text(label, bx, y0 - 0.03 * u, bw, bh, text_size, argb(ink), bold=bold,
+                       outline=argb(WHITE, 0.7), outline_w=max(1.5, u / 12), font=font)
+            else:                                      # black RGB
+                if glowing:
+                    for k in range(3):
+                        grow = (k + 1) * 0.03 * u
+                        c.gradient_rect(bx - grow, y0 - grow, bw + 2 * grow, bh + 2 * grow, r + grow,
+                                        stroke=self.rainbow(now, offset=i * 0.25), width=max(1, u / 14) * (3 - k) * pulse)
+                c.round_rect(bx, y0, bw, bh, r, fill=argb((0.025, 0.025, 0.035), 0.96))
+                c.gradient_rect(bx + 0.5, y0 + 0.5, bw - 1, bh - 1, r, stroke=self.rainbow(now, offset=i * 0.25),
+                                width=max(1.5, u / 11))
+                if team is not None:
+                    c.round_rect(bx + 0.4 * u, y0 + bh - 0.2 * u, bw - 0.8 * u, 0.07 * u, 0.035 * u,
+                                 fill=argb(team_col, 0.9))
+                fill = argb((1.0, 0.84, 0.3)) if (team is None and self.ot) else self.rainbow(now, offset=i * 0.25 + 0.1)
+                c.text(label, bx, y0 - 0.03 * u, bw, bh, text_size, fill, bold=bold, outline=argb((0, 0, 0), 0.8),
+                       outline_w=max(1.5, u / 10), font=font)
+            if team is None and self.ot:
+                c.text(T("rl_ot"), bx, y0 + 0.1 * u, bw, 0.36 * u, 0.24 * u,
+                       argb((1.0, 0.84, 0.3)) if mode != "pastel" else argb((0.6, 0.42, 0.05)), font=font)
+
+    def tick(self, now):
+        if not self.shown:
+            return
+        key = (tuple(self.scores), int(self.secs), self.ot, self.mode)
+        pulsing = self.goal is not None and now - self.goal[1] < self.PULSE + 0.1
+        animated = self.mode != "enhanced"
+        if key != self.last_key or (pulsing and now - self.last_draw > 1 / FPS) or \
+                (animated and now - self.last_draw > 1 / 15):
+            self.last_key = key
+            self.redraw()
+
+    # ---------- right-click options
+    def menu_items(self, add, checked):
+        for i, m in enumerate(SB_MODES):
+            add(checked(self.mode == m), 790 + i, f"{T('sb_mode')}: {T('sb_' + m)}")
+        add(0x800, 0, None)
+        current = self.wcfg.get("font") or "Bahnschrift"
+        fonts = [f for f in SB_FONTS if font_installed(f)]
+        for i, f in enumerate(fonts):
+            add(checked(current == f), 800 + i, f"{T('sb_font')}: {f}")
+        if current not in fonts:
+            add(0x8, 811, f"{T('sb_font')}: {current}")
+        add(0, 810, T("sb_font_other"))
+        add(checked(self.wcfg.get("bold", True)), 793, T("sb_bold"))
+        add(0, 794, T("sb_top"))
+
+    def menu_command(self, cmd):
+        fonts = [f for f in SB_FONTS if font_installed(f)]
+        if 790 <= cmd < 790 + len(SB_MODES):
+            self.wcfg["mode"] = SB_MODES[cmd - 790]
+        elif 800 <= cmd < 800 + len(fonts):
+            self.wcfg["font"] = fonts[cmd - 800]
+        elif cmd == 810:
+            picked = pick_font(self.wcfg.get("font"), self.wcfg.get("bold", True))
+            if not picked:
+                return True
+            self.wcfg["font"], self.wcfg["bold"] = picked
+        elif cmd == 793:
+            self.wcfg["bold"] = not self.wcfg.get("bold", True)
+        elif cmd == 794:
+            self.wcfg["x"] = self.wcfg["y"] = None
+            self.place()
+        elif cmd == 811:
+            return True
+        else:
+            return False
+        self.redraw()
+        return True
+
+
 class DashWidget(ArgbWidget):
     """Geometry Dash: a little cube that jumps with you and counts your jumps (clicks, Space, Up, W in the game)."""
     kind = "dash"
@@ -3727,7 +4015,8 @@ class HintWidget(ArgbWidget):
 
 
 WIDGET_CLASSES = {"player": PlayerWidget, "stats": StatsWidget, "cat": CatWidget, "text": TextWidget,
-                  "image": ImageWidget, "session": SessionWidget, "rocket": RocketWidget, "dash": DashWidget}
+                  "image": ImageWidget, "session": SessionWidget, "rocket": RocketWidget, "dash": DashWidget,
+                  "scoreboard": ScoreboardWidget}
 
 
 GD_JUMP_KEYS = {M("L"), S(0x39), E(0x48), S(0x11)}         # click, Space, Up arrow, W
@@ -3799,6 +4088,9 @@ class App:
         others = {w.kind: w.rect() for w in self.widgets.values() if w is not widget}
         kb = others.get("keyboard")
         kind = widget.kind
+        if kind == "scoreboard":                  # top center, over the game's own scoreboard
+            screen_w = user32.GetSystemMetrics(0)
+            return (screen_w - widget.w) // 2, 0
         if kind == "keyboard" or kb is None:
             corner = self.cfg.get("corner", "bottom-left")
             m = int(20 * self.dpi)
@@ -3948,8 +4240,10 @@ class App:
             self.gd_seconds += elapsed
         self.note_games(now)
         rocket = next((w for w in self.widgets.values() if w.kind == "rocket"), None)
-        want = bool(rocket and self.cfg["visible"] and rocket.wcfg.get("visible", True)
-                    and ("rocketleague.exe" in self.running or rocket.connected))
+        rl_widgets = [w for w in self.widgets.values() if w.kind in ("rocket", "scoreboard")
+                      and w.wcfg.get("visible", True)]
+        want = bool(rl_widgets and self.cfg["visible"]
+                    and ("rocketleague.exe" in self.running or (rocket and rocket.connected)))
         if want:
             rl_wanted.set()
         else:
@@ -4080,8 +4374,8 @@ class App:
                     if pl:
                         pl.set_state(val)
                 elif kind == "rl":
-                    for w in self.widgets.values():
-                        if w.kind == "rocket":
+                    for w in list(self.widgets.values()):
+                        if w.kind in ("rocket", "scoreboard"):
                             w.on_rl(*val)
                 elif kind == "sound_error":
                     self.sound_failed(val)
