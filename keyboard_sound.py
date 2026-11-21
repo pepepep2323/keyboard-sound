@@ -1064,7 +1064,7 @@ NEW_WIDGETS = {          # built-in widgets added in later versions (added to ol
 def scoreboard_default_size():
     h = ctypes.windll.user32.GetSystemMetrics(1) or 1080
     dpi = (ctypes.windll.user32.GetDpiForSystem() or 96) / 96.0
-    return max(16, int(round(37.5 * h / 1080 / dpi)))
+    return max(16, int(round(40 * h / 1080 / dpi)))
 
 
 def load_settings():
@@ -1857,6 +1857,8 @@ for _name, _args in (
     ("GdipDeleteBrush", [_vp]),
     ("GdipCreatePen1", [wintypes.DWORD, REAL, ctypes.c_int, _vp]),
     ("GdipCreatePen2", [_vp, REAL, ctypes.c_int, _vp]),
+    ("GdipSetClipPath", [_vp, _vp, ctypes.c_int]),
+    ("GdipResetClip", [_vp]),
     ("GdipDeletePen", [_vp]),
     ("GdipSetPenLineJoin", [_vp, ctypes.c_int]),
     ("GdipSetPenStartCap", [_vp, ctypes.c_int]),
@@ -1867,6 +1869,7 @@ for _name, _args in (
     ("GdipAddPathArc", [_vp, REAL, REAL, REAL, REAL, REAL, REAL]),
     ("GdipAddPathPolygon", [_vp, _vp, ctypes.c_int]),
     ("GdipClosePathFigure", [_vp]),
+    ("GdipSetPathFillMode", [_vp, ctypes.c_int]),
     ("GdipFillPath", [_vp, _vp, _vp]),
     ("GdipDrawPath", [_vp, _vp, _vp]),
     ("GdipFillEllipse", [_vp, _vp, REAL, REAL, REAL, REAL]),
@@ -2058,6 +2061,45 @@ class Canvas:
                                            (REAL * n)(*[i / (n - 1) for i in range(n)]), n)
         return brush
 
+    def shape(self, flat, fill=None, stroke=None, width=1.0, vertical=True, stroke_vertical=False):
+        """Polygon from a flat [x0, y0, x1, y1, ...] list; fill / stroke = one ARGB color or a gradient list."""
+        n = len(flat) // 2
+        arr = (PointF * n)(*[PointF(flat[2 * i], flat[2 * i + 1]) for i in range(n)])
+        xs, ys = flat[0::2], flat[1::2]
+        x1, y1, x2, y2 = min(xs), min(ys), max(xs), max(ys)
+        gdiplus.GdipResetPath(self.path)
+        gdiplus.GdipAddPathPolygon(self.path, arr, n)
+        for paint, is_fill, vert in ((fill, True, vertical), (stroke, False, stroke_vertical)):
+            if paint is None:
+                continue
+            brush = None
+            if isinstance(paint, list):
+                brush = self.line_brush(x1, y1, x1 if vert else x2, y2 if vert else y1, paint)
+            if is_fill:
+                gdiplus.GdipFillPath(self.g, brush or self._fill(paint), self.path)
+            else:
+                pen = ctypes.c_void_p()
+                if brush:
+                    gdiplus.GdipCreatePen2(brush, width, 0, ctypes.byref(pen))
+                    gdiplus.GdipSetPenLineJoin(pen, 2)
+                else:
+                    pen = self._pen(paint, width)
+                gdiplus.GdipDrawPath(self.g, pen, self.path)
+                gdiplus.GdipDeletePen(pen)
+            if brush:
+                gdiplus.GdipDeleteBrush(brush)
+
+    def clip(self, flat):
+        """Only draw inside this polygon until unclip()."""
+        n = len(flat) // 2
+        arr = (PointF * n)(*[PointF(flat[2 * i], flat[2 * i + 1]) for i in range(n)])
+        gdiplus.GdipResetPath(self.path)
+        gdiplus.GdipAddPathPolygon(self.path, arr, n)
+        gdiplus.GdipSetClipPath(self.g, self.path, 0)
+
+    def unclip(self):
+        gdiplus.GdipResetClip(self.g)
+
     def gradient_rect(self, x, y, w, h, r, fill=None, stroke=None, width=1.0, vertical=True):
         """Rounded rectangle filled and / or outlined with gradients (lists of ARGB colors)."""
         self._round_path(x, y, w, h, r)
@@ -2079,9 +2121,11 @@ class Canvas:
         gdiplus.GdipSetStringFormatAlign(self.fmt, align)          # 0 near, 1 center, 2 far
         gdiplus.GdipSetStringFormatLineAlign(self.fmt, valign)
         rect = RectF(x, y, w, h)
+        gdiplus.GdipSetPathFillMode(self.path, 1)                  # winding: no holes where letter parts overlap
         if gdiplus.GdipAddPathString(self.path, text, -1, self.family(font), 1 if bold else 0, size,
                                      ctypes.byref(rect), self.fmt) and bold:     # font has no bold: use regular
             gdiplus.GdipResetPath(self.path)
+            gdiplus.GdipSetPathFillMode(self.path, 1)
             gdiplus.GdipAddPathString(self.path, text, -1, self.family(font), 0, size, ctypes.byref(rect), self.fmt)
 
     def text(self, text, x, y, w, h, size, fill, bold=True, align=1, valign=1, outline=None, outline_w=0.0,
@@ -2424,10 +2468,13 @@ class ArgbWidget(Widget):
             _, _, tw, _ = c.measure(text, 12 * d)
             c.round_rect(2, 2, tw + 14 * d, 20 * d, 5 * d, fill=argb(ACCENT))
             c.text(text, 2, 2, tw + 14 * d, 20 * d, 12 * d, argb((0.06, 0.06, 0.06)))
-        c.present(self.hwnd, self.app.cfg["opacity"])
+        c.present(self.hwnd, self.opacity())
 
     def draw(self, c, now):
         pass
+
+    def opacity(self):
+        return self.app.cfg["opacity"]
 
     def close(self):
         if getattr(self, "canvas", None):
@@ -3534,28 +3581,79 @@ def font_installed(name, cache={}):
     return cache[name]
 
 
+def hex_rgb(text, default):
+    try:
+        v = int(str(text).strip().lstrip("#")[:6], 16)
+        return ((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255
+    except (TypeError, ValueError):
+        return default
+
+
+def vivid(rgb, min_v=0.45):
+    """Team colors can be very dark (club colors): keep them bright enough to read."""
+    h, sat, v = colorsys.rgb_to_hsv(*rgb)
+    return colorsys.hsv_to_rgb(h, sat, max(v, min_v))
+
+
 class ScoreboardWidget(ArgbWidget):
-    """Rocket League score counter: blue score, match time, orange score - sits over the game's own scoreboard."""
+    """Rocket League score counter: your team's score, match time, the other team's score.
+    Covers the game's own scoreboard: one solid board, real team colors, animated."""
     kind = "scoreboard"
     PULSE = 3.0
+    LAYOUT = 2              # bump when the default size / place changes (old settings get the new default)
+    CONFETTI = 2.6          # seconds confetti falls after a goal
 
     def __init__(self, app, wid):
         super().__init__(app, wid)
         self.in_match = False
         self.scores, self.secs, self.ot = [0, 0], 300, False
+        self.colors = {0: RL_BLUE, 1: RL_ORANGE}
+        self.my_team, self.my_name = None, None
         self.goal = None                          # (team, time)
-        self.last_key = None
+        self.pops = {}                            # team -> time its number changed
+        self.waves = []                           # (team, time): shock rings after a goal
+        self.bits = []                            # confetti: [x, y, vx, vy, angle, spin, size, rgb, born]
         self.last_draw = 0.0
+        if self.wcfg.get("layout") != self.LAYOUT:      # older, smaller scoreboard -> new size, back to the top
+            self.wcfg.update(layout=self.LAYOUT, size=scoreboard_default_size(), x=None, y=None)
         self.build()
+
+    def opacity(self):
+        return 1.0                                # never see-through: the game's scoreboard must not show
 
     def build(self):
         u = self.u
-        # proportions of the game's own scoreboard (at 1080p: 75 px score boxes, 200 px time box, 80 px tall)
-        self.box_w, self.clock_w, self.gap, self.pad = 2.0 * u, 5.3 * u, 0.08 * u, 0.1 * u
-        self.box_h = 2.05 * u
-        self.make_canvas(2 * self.box_w + self.clock_w + 2 * self.gap + 2 * self.pad, self.box_h + 2 * self.pad)
+        self.H = 2.5 * u                          # time tab height (the game's board is ~2.1 u plus its glow)
+        self.Hb = 2.3 * u                         # score tabs
+        self.slant = 0.38 * u
+        self.clock_w, self.box_w, self.gap = 5.7 * u, 2.4 * u, 0.12 * u
+        self.side = 0.9 * u                       # room for the glow and goal rings at the sides
+        w = self.clock_w + 2 * (self.gap + self.box_w) + 2 * self.side + self.slant
+        self.make_canvas(w, self.H + 2.2 * u)     # extra room below for the confetti
+        self.shapes, self.backing = self.make_shapes()
         self.place()
         self.refresh()
+
+    def make_shapes(self):
+        """[left score, time, right score]: (rounded outline points, text box), plus one board behind them all."""
+        u, H, Hb, sl = self.u, self.H, self.Hb, self.slant
+        cx = self.w / 2
+        r_top, r_bot = 0.04 * u, 0.42 * u
+        cl, cr = cx - self.clock_w / 2, cx + self.clock_w / 2
+        clock = [(cl, 0), (cr, 0), (cr - sl, H), (cl + sl, H)]
+        k = sl * Hb / H                            # same slope on the score tabs
+        bt_r = cl - self.gap
+        left = [(bt_r - self.box_w, 0), (bt_r, 0), (bt_r + k, Hb), (bt_r - self.box_w + k, Hb)]
+        ot_l = cr + self.gap
+        right = [(ot_l, 0), (ot_l + self.box_w, 0), (ot_l + self.box_w - k, Hb), (ot_l - k, Hb)]
+        shapes = []
+        for pts, h in ((left, Hb), (clock, H), (right, Hb)):
+            flat = rounded_points(pts, [r_top, r_top, r_bot, r_bot], 8)
+            xs = [x for x, _ in pts]
+            shapes.append((flat, (min(xs) + sl / 2, 0, max(xs) - min(xs) - sl, h)))
+        # the board behind: fills the gaps between the tabs so nothing of the game shows through them
+        back = [left[0], right[1], (right[2][0], Hb - 0.15 * u), (left[3][0], Hb - 0.15 * u)]
+        return shapes, rounded_points(back, [r_top, r_top, r_bot, r_bot], 8)
 
     def has_content(self):
         return self.in_match
@@ -3565,22 +3663,42 @@ class ScoreboardWidget(ArgbWidget):
         m = self.wcfg.get("mode", "enhanced")
         return m if m in SB_MODES else "enhanced"
 
+    def order(self):
+        """Teams left -> right: your team first (blue first while it's not known yet)."""
+        mine = self.my_team if self.my_team in (0, 1) else 0
+        return mine, 1 - mine
+
     # ---------- data from the game
     def on_rl(self, event, data):
         data = data if isinstance(data, dict) else {}
+        now = time.monotonic()
         was = self.in_match
         if event in ("Connected", "Disconnected", "MatchDestroyed"):
             self.in_match, self.scores, self.secs, self.ot, self.goal = False, [0, 0], 300, False, None
+            self.colors = {0: RL_BLUE, 1: RL_ORANGE}
+            self.my_team, self.pops, self.waves, self.bits = None, {}, [], []
         elif event == "UpdateState":
             game = data.get("Game") or {}
+            players = [pl for pl in data.get("Players") or [] if isinstance(pl, dict)]
             teams = [t for t in game.get("Teams") or [] if isinstance(t, dict)]
-            self.in_match = bool(teams or data.get("Players"))
+            self.in_match = bool(teams or players)
             for t in teams:
-                if t.get("TeamNum") in (0, 1):
-                    self.scores[t["TeamNum"]] = int(t.get("Score") or 0)
+                team = t.get("TeamNum")
+                if team in (0, 1):
+                    score = int(t.get("Score") or 0)
+                    if score != self.scores[team] and was:
+                        self.pops[team] = now                      # the number pops when it changes
+                    self.scores[team] = score
+                    self.colors[team] = vivid(hex_rgb(t.get("ColorPrimary"), RL_BLUE if team == 0 else RL_ORANGE))
             if isinstance(game.get("TimeSeconds"), (int, float)):
                 self.secs = game["TimeSeconds"]
             self.ot = bool(game.get("bOvertime"))
+            target = game.get("Target") if game.get("bHasTarget") and isinstance(game.get("Target"), dict) else None
+            if target and not game.get("bReplay") and target.get("TeamNum") in (0, 1):
+                me = next((pl for pl in players if pl.get("Name") == target.get("Name")
+                           and pl.get("Shortcut") == target.get("Shortcut")), None)
+                if me is not None and "Boost" in me:          # boost is only sent for your own team
+                    self.my_team, self.my_name = target["TeamNum"], me.get("Name")
         elif event == "ClockUpdatedSeconds":
             if isinstance(data.get("TimeSeconds"), (int, float)):
                 self.secs = data["TimeSeconds"]
@@ -3588,98 +3706,237 @@ class ScoreboardWidget(ArgbWidget):
         elif event == "GoalScored":
             team = (data.get("Scorer") or {}).get("TeamNum")
             if team in (0, 1):
-                self.goal = (team, time.monotonic())
+                self.goal = (team, now)
+                self.waves = self.waves[-3:] + [(team, now), (team, now + 0.18)]
+                self.burst(team, now)
         elif event in ("MatchCreated", "MatchInitialized", "RoundStarted"):
             self.in_match = True
         if self.in_match != was:
             self.refresh()
+
+    def burst(self, team, now):
+        """Confetti in the scoring team's color (and white) flies out of its tab."""
+        slot = 0 if self.order()[0] == team else 2
+        _, (x, y, w, h) = self.shapes[slot]
+        u, col = self.u, self.colors[team]
+        palette = [col, mix(col, WHITE, 0.5), WHITE, mix(col, (1.0, 0.85, 0.3), 0.5)]
+        for _ in range(50):                       # from the bottom edge, outwards and down: never over the numbers
+            px = x + random.random() * w
+            out = (px - (x + w / 2)) / (w / 2)
+            self.bits.append([px, y + h - 0.1 * u, (out * 3 + (random.random() - 0.5) * 3) * u,
+                              (-0.8 + random.random() * 2.6) * u, random.random() * 6.28, (random.random() - 0.5) * 14,
+                              (0.1 + random.random() * 0.12) * u, random.choice(palette), now])
 
     # ---------- drawing
     def font(self):
         name = self.wcfg.get("font") or "Bahnschrift"
         return name if font_installed(name) else "Segoe UI"
 
-    def rainbow(self, now, n=6, s=1.0, v=1.0, offset=0.0, speed=0.12):
-        return [argb(colorsys.hsv_to_rgb((offset + i / (n - 1) * 0.8 - now * speed) % 1.0, s, v)) for i in range(n)]
+    @staticmethod
+    def rainbow(now, n=7, s=1.0, v=1.0, offset=0.0, speed=0.15, span=1.0, a=1.0):
+        return [argb(colorsys.hsv_to_rgb((offset + i / (n - 1) * span - now * speed) % 1.0, s, v), a)
+                for i in range(n)]
+
+    @staticmethod
+    def shifted(flat, dx=0.0, dy=0.0):
+        return [v + (dx if i % 2 == 0 else dy) for i, v in enumerate(flat)]
+
+    @staticmethod
+    def grown(flat, box, amount):
+        """The outline pushed outwards from its middle by `amount` pixels."""
+        x, y, w, h = box
+        cx, cy = x + w / 2, y + h / 2
+        out = []
+        for i in range(0, len(flat), 2):
+            dx, dy = flat[i] - cx, flat[i + 1] - cy
+            d = math.hypot(dx, dy) or 1
+            out += [flat[i] + dx / d * amount, flat[i + 1] + dy / d * amount]
+        return out
+
+    def sheen(self, c, flat, box, now, delay):
+        """A light stripe sweeps over the tab every few seconds."""
+        t = (now + delay) % 4.5
+        if t > 0.9:
+            return
+        u = self.u
+        x, y, w, h = box
+        xc = x - 1.5 * u + (w + 3 * u) * (t / 0.9)
+        c.clip(flat)
+        band = [xc - 0.55 * u, y, xc + 0.15 * u, y, xc - 0.35 * u, y + h + u, xc - 1.05 * u, y + h + u]
+        c.shape(band, fill=[argb(WHITE, 0.0), argb(WHITE, 0.38), argb(WHITE, 0.0)], vertical=False)
+        c.unclip()
+
+    def pop_scale(self, team, now):
+        """1.0 normally; the number jumps up and settles with a little bounce when the score changes."""
+        t0 = self.pops.get(team)
+        if t0 is None or now - t0 > 0.9:
+            return 1.0, 0.0
+        t = (now - t0) / 0.9
+        return 1.0 + 0.55 * math.exp(-5 * t) * math.cos(t * 9), max(0.0, 1.0 - t * 2.2)
 
     def draw(self, c, now):
+        dt = min(0.1, now - self.last_draw) if self.last_draw else 0.0
         self.last_draw = now
         u, mode, font = self.u, self.mode, self.font()
         bold = self.wcfg.get("bold", True)
-        text_size = 1.08 * u                       # score and time: same text size, like in the game
-        x0, y0, bh, r = self.pad, self.pad, self.box_h, 0.34 * u
-        boxes = [(x0, 0), (x0 + self.box_w + self.gap, None), (x0 + self.box_w + 2 * self.gap + self.clock_w, 1)]
+        text_size = 1.12 * u                       # score and time: same text size, like in the game
         pulse = 0.0
         if self.goal and now - self.goal[1] < self.PULSE:
-            pulse = 0.5 + 0.5 * math.cos((now - self.goal[1]) * 2 * math.pi * 1.5)
-            pulse *= 1.0 - (now - self.goal[1]) / self.PULSE
+            age = now - self.goal[1]
+            pulse = (0.5 + 0.5 * math.cos(age * 2 * math.pi * 1.6)) * (1.0 - age / self.PULSE)
         clock = ("+" if self.ot else "") + clock_text(self.secs, hours=False)
+        hurry = not self.ot and 0 < self.secs <= 10       # last 10 seconds: the time blinks
+        late = not self.ot and 0 < self.secs <= 30        # last 30 seconds: the time tab's edge pulses
+        blink = 0.5 + 0.5 * math.cos(now * 2 * math.pi) if hurry else 0.0
+        gold = (1.0, 0.84, 0.3)
+        left, right = self.order()
+        slots = [left, None, right]
 
-        for i, (bx, team) in enumerate(boxes):
-            bw = self.clock_w if team is None else self.box_w
+        # soft shadow, then one solid board behind the tabs (the game never shows through the gaps)
+        for k in range(3):
+            c.shape(self.shifted(self.backing, 0, (k + 1) * 0.07 * u), fill=argb((0, 0, 0), 0.22 - k * 0.06))
+            c.shape(self.shifted(self.shapes[1][0], 0, (k + 1) * 0.07 * u), fill=argb((0, 0, 0), 0.22 - k * 0.06))
+        back = {"enhanced": [argb((0.1, 0.1, 0.15)), argb((0.03, 0.03, 0.05))],
+                "pastel": [argb((1.0, 0.98, 1.0)), argb((0.9, 0.88, 0.97))],
+                "black": [argb((0.04, 0.04, 0.05)), argb((0.0, 0.0, 0.0))]}[mode]
+        c.shape(self.backing, fill=back)
+
+        # shock rings after a goal
+        live = []
+        for team, t0 in self.waves:
+            age = now - t0
+            if age < 0:
+                live.append((team, t0))
+                continue
+            if age < 0.7:
+                live.append((team, t0))
+                slot = 0 if team == left else 2
+                flat, box = self.shapes[slot]
+                ring = self.grown(flat, box, age * 1.1 * u)
+                col = self.colors[team] if mode == "enhanced" else colorsys.hsv_to_rgb((now * 0.3) % 1, 0.6, 1)
+                c.shape(ring, stroke=argb(mix(col, WHITE, 0.3), 0.8 * (1 - age / 0.7)), width=max(1.5, u / 9))
+        self.waves = live
+
+        for i, (flat, box) in enumerate(self.shapes):
+            team = slots[i]
+            x, y, bw, bh = box
+            team_col = None if team is None else self.colors[team]
+            glowing = team is not None and self.goal is not None and self.goal[0] == team and pulse > 0.01
+            scale, flash = (1.0, 0.0) if team is None else self.pop_scale(team, now)
             label = clock if team is None else str(self.scores[team])
-            team_col = None if team is None else (RL_BLUE if team == 0 else RL_ORANGE)
-            glowing = team is not None and self.goal and self.goal[0] == team and pulse > 0
+            size = text_size * scale
+
             if mode == "enhanced":
-                if glowing:                            # goal: the scoring team's box pulses
-                    for k in range(3):
-                        grow = (k + 1) * 0.03 * u
-                        c.round_rect(bx - grow, y0 - grow, bw + 2 * grow, bh + 2 * grow, r + grow,
-                                     fill=argb(team_col, 0.22 * pulse / (k + 1)))
-                if team is None:
-                    c.gradient_rect(bx, y0, bw, bh, r, fill=[argb((0.17, 0.17, 0.23), 0.95), argb((0.04, 0.04, 0.07), 0.95)])
-                    c.round_rect(bx + 0.5, y0 + 0.5, bw - 1, bh - 1, r, stroke=argb(WHITE, 0.18), width=max(1, u / 20))
-                    c.round_rect(bx + 0.3 * u, y0 + bh - 0.2 * u, bw / 2 - 0.3 * u, 0.08 * u, 0.04 * u, fill=argb(RL_BLUE))
-                    c.round_rect(bx + bw / 2, y0 + bh - 0.2 * u, bw / 2 - 0.3 * u, 0.08 * u, 0.04 * u, fill=argb(RL_ORANGE))
-                    fill = argb((1.0, 0.84, 0.3)) if self.ot else argb(WHITE)
-                else:
-                    light, dark = mix(team_col, WHITE, 0.3 + 0.3 * pulse if glowing else 0.3), mix(team_col, (0, 0, 0), 0.3)
-                    c.gradient_rect(bx, y0, bw, bh, r, fill=[argb(light), argb(team_col), argb(dark)])
-                    c.round_rect(bx + 0.1 * u, y0 + 0.08 * u, bw - 0.2 * u, bh * 0.42, r * 0.8, fill=argb(WHITE, 0.13))
-                    c.round_rect(bx + 0.5, y0 + 0.5, bw - 1, bh - 1, r, stroke=argb(WHITE, 0.35), width=max(1, u / 18))
-                    fill = argb(WHITE)
-                c.text(label, bx, y0, bw, bh, text_size, fill, bold=bold, outline=argb((0, 0, 0), 0.55),
-                       outline_w=max(1.5, u / 9), font=font)
-            elif mode == "pastel":
-                hue = (now * 0.06 + i * 0.13) % 1.0
-                base = colorsys.hsv_to_rgb(hue, 0.28 + (0.25 * pulse if glowing else 0), 1.0)
-                c.gradient_rect(bx, y0, bw, bh, r, fill=[argb(mix(base, WHITE, 0.35), 0.96), argb(base, 0.96)],
-                                stroke=self.rainbow(now, s=0.35, offset=i * 0.2, speed=0.06), width=max(1.5, u / 12))
-                if team is not None:                   # pastel blue / orange strip = which team
-                    strip = (0.55, 0.74, 1.0) if team == 0 else (1.0, 0.72, 0.5)
-                    c.round_rect(bx + 0.35 * u, y0 + bh - 0.22 * u, bw - 0.7 * u, 0.1 * u, 0.05 * u, fill=argb(strip))
-                ink = (0.6, 0.42, 0.05) if (team is None and self.ot) else (0.2, 0.18, 0.32)
-                c.text(label, bx, y0 - 0.03 * u, bw, bh, text_size, argb(ink), bold=bold,
-                       outline=argb(WHITE, 0.7), outline_w=max(1.5, u / 12), font=font)
-            else:                                      # black RGB
                 if glowing:
-                    for k in range(3):
-                        grow = (k + 1) * 0.03 * u
-                        c.gradient_rect(bx - grow, y0 - grow, bw + 2 * grow, bh + 2 * grow, r + grow,
-                                        stroke=self.rainbow(now, offset=i * 0.25), width=max(1, u / 14) * (3 - k) * pulse)
-                c.round_rect(bx, y0, bw, bh, r, fill=argb((0.025, 0.025, 0.035), 0.96))
-                c.gradient_rect(bx + 0.5, y0 + 0.5, bw - 1, bh - 1, r, stroke=self.rainbow(now, offset=i * 0.25),
-                                width=max(1.5, u / 11))
+                    for k in range(4):
+                        c.shape(flat, stroke=argb(mix(team_col, WHITE, 0.3), 0.35 * pulse / (k + 1)),
+                                width=(k + 1) * 0.16 * u)
+                if team is None:
+                    lc, rc = self.colors[left], self.colors[right]
+                    c.shape(flat, fill=[argb((0.2, 0.21, 0.29)), argb((0.09, 0.09, 0.14)), argb((0.03, 0.03, 0.06))])
+                    if late:
+                        c.shape(flat, stroke=argb((1.0, 0.3, 0.3), 0.35 + 0.45 * (0.5 + 0.5 * math.cos(now * 2 * math.pi))),
+                                width=max(2.0, u / 9))
+                    elif self.ot:
+                        c.shape(flat, stroke=[argb(gold), argb(WHITE), argb(gold)], width=max(2.0, u / 10))
+                    else:
+                        c.shape(flat, stroke=[argb(lc, 0.95), argb(WHITE, 0.25), argb(rc, 0.95)], width=max(1.5, u / 14))
+                    bar_y, bar_h = bh - 0.36 * u, 0.09 * u     # team bar under the time with a running light
+                    half = bw / 2 - 0.45 * u
+                    c.round_rect(x + 0.45 * u, bar_y, half, bar_h, bar_h / 2, fill=argb(lc))
+                    c.round_rect(x + bw / 2, bar_y, half, bar_h, bar_h / 2, fill=argb(rc))
+                    dot = x + 0.45 * u + (2 * half) * (0.5 + 0.5 * math.sin(now * 1.3))
+                    c.ellipse(dot - 0.35 * u, bar_y - 0.1 * u, 0.7 * u, bar_h + 0.2 * u, fill=argb(WHITE, 0.45))
+                    fill = argb(gold) if self.ot else argb(mix(WHITE, (1.0, 0.25, 0.25), blink))
+                else:
+                    breathe = 0.06 * math.sin(now * 1.7 + i)            # the color slowly breathes
+                    lift = 0.55 * pulse if glowing else 0.0
+                    lift = max(lift, 0.6 * flash)
+                    top = mix(team_col, WHITE, 0.4 + breathe + lift)
+                    mid, bot = mix(team_col, WHITE, lift), mix(team_col, (0, 0, 0), 0.35)
+                    c.shape(flat, fill=[argb(top), argb(mid), argb(bot)])
+                    c.shape(flat, stroke=[argb(WHITE, 0.7), argb(WHITE, 0.15)], width=max(1.5, u / 14),
+                            stroke_vertical=True)
+                    self.sheen(c, flat, box, now, i * 0.25)
+                    fill = argb(WHITE)
+                c.text(label, x - bw, y - 0.05 * u, 3 * bw, bh, size, fill, bold=bold, outline=argb((0, 0, 0), 0.6),
+                       outline_w=max(2.0, u / 8), font=font)
+
+            elif mode == "pastel":
+                if glowing:
+                    for k in range(4):
+                        c.shape(flat, stroke=self.rainbow(now, s=0.45, offset=i * 0.2, a=0.5 / (k + 1)),
+                                width=(k + 1) * 0.15 * u * pulse)
+                base = now * 0.05 + i * 0.18
+                cols = [argb(mix(colorsys.hsv_to_rgb((base + j * 0.09) % 1.0, 0.26, 1.0), WHITE, 0.5 * flash))
+                        for j in range(4)]
+                c.shape(flat, fill=cols, vertical=False)
+                c.shape(flat, fill=[argb(WHITE, 0.45), argb(WHITE, 0.0)])           # soft top light
+                edge = self.rainbow(now, s=0.4, offset=i * 0.2, speed=0.08)
+                if late:
+                    edge = argb((1.0, 0.55, 0.6), 0.5 + 0.5 * (0.5 + 0.5 * math.cos(now * 2 * math.pi)))
+                c.shape(flat, stroke=edge, width=max(2.0, u / 10))
+                if team is not None:                  # pastel version of the team's color = which team
+                    strip = mix(team_col, WHITE, 0.35)
+                    c.round_rect(x + 0.45 * u, bh - 0.32 * u, bw - 0.9 * u, 0.12 * u, 0.06 * u, fill=argb(strip))
+                    self.sheen(c, flat, box, now, i * 0.25)
+                ink = (0.62, 0.42, 0.02) if (team is None and self.ot) else mix((0.2, 0.17, 0.33), (0.85, 0.1, 0.2), blink if team is None else 0)
+                c.text(label, x - bw, y - 0.05 * u, 3 * bw, bh, size, argb(ink), bold=bold,
+                       outline=argb(WHITE, 0.85), outline_w=max(2.0, u / 9), font=font)
+
+            else:                                            # black RGB
+                ring = self.rainbow(now, offset=i * 0.22)
+                boost = 1 + 0.6 * pulse if glowing else 1.0
+                for k in range(4):                           # soft neon glow around the tab
+                    c.shape(flat, stroke=self.rainbow(now, offset=i * 0.22, a=min(1.0, 0.16 + 0.4 * pulse * glowing) / (k + 1)),
+                            width=(k + 1) * 0.12 * u * boost)
+                c.shape(flat, fill=[argb(mix((0.06, 0.06, 0.08), WHITE, 0.35 * flash)), argb((0.01, 0.01, 0.015))])
+                c.shape(flat, stroke=argb((1.0, 0.3, 0.3)) if (late and team is None and int(now * 2) % 2) else ring,
+                        width=max(2.0, u / 9))
                 if team is not None:
-                    c.round_rect(bx + 0.4 * u, y0 + bh - 0.2 * u, bw - 0.8 * u, 0.07 * u, 0.035 * u,
-                                 fill=argb(team_col, 0.9))
-                fill = argb((1.0, 0.84, 0.3)) if (team is None and self.ot) else self.rainbow(now, offset=i * 0.25 + 0.1)
-                c.text(label, bx, y0 - 0.03 * u, bw, bh, text_size, fill, bold=bold, outline=argb((0, 0, 0), 0.8),
-                       outline_w=max(1.5, u / 10), font=font)
+                    c.round_rect(x + 0.5 * u, bh - 0.3 * u, bw - 1.0 * u, 0.09 * u, 0.045 * u, fill=argb(team_col))
+                self.sheen(c, flat, box, now, i * 0.25)
+                if team is None and self.ot:
+                    fill = argb(gold)
+                elif hurry and team is None:
+                    fill = argb(mix((1.0, 0.2, 0.25), WHITE, blink))
+                else:
+                    fill = self.rainbow(now, n=5, offset=i * 0.22 + 0.1, span=0.5)
+                c.text(label, x - bw, y - 0.05 * u, 3 * bw, bh, size, fill, bold=bold, outline=argb((0, 0, 0), 0.9),
+                       outline_w=max(2.0, u / 8), font=font)
+
             if team is None and self.ot:
-                c.text(T("rl_ot"), bx, y0 + 0.1 * u, bw, 0.36 * u, 0.24 * u,
-                       argb((1.0, 0.84, 0.3)) if mode != "pastel" else argb((0.6, 0.42, 0.05)), font=font)
+                c.text(T("rl_ot"), x, y + 0.08 * u, bw, 0.38 * u, 0.26 * u,
+                       argb(gold) if mode != "pastel" else argb((0.62, 0.42, 0.02)), font=font)
+
+        # confetti
+        if self.bits:
+            g = 5.5 * u
+            alive = []
+            for b in self.bits:
+                age = now - b[8]
+                if age > self.CONFETTI or b[1] > self.h + u:
+                    continue
+                b[0] += b[2] * dt
+                b[1] += b[3] * dt
+                b[3] += g * dt
+                b[2] *= 0.985
+                b[4] += b[5] * dt
+                alive.append(b)
+                sz, ca, sa = b[6], math.cos(b[4]), math.sin(b[4])
+                pts = []
+                for px, py in ((-sz, -sz * 0.5), (sz, -sz * 0.5), (sz, sz * 0.5), (-sz, sz * 0.5)):
+                    pts += [b[0] + px * ca - py * sa, b[1] + px * sa + py * ca]
+                c.shape(pts, fill=argb(b[7], max(0.0, 1.0 - max(0.0, age - self.CONFETTI + 0.8) / 0.8)))
+            self.bits = alive
+
+    def busy(self, now):
+        return bool(self.bits or self.waves or any(now - t < 0.9 for t in self.pops.values())
+                    or (self.goal and now - self.goal[1] < self.PULSE))
 
     def tick(self, now):
-        if not self.shown:
-            return
-        key = (tuple(self.scores), int(self.secs), self.ot, self.mode)
-        pulsing = self.goal is not None and now - self.goal[1] < self.PULSE + 0.1
-        animated = self.mode != "enhanced"
-        if key != self.last_key or (pulsing and now - self.last_draw > 1 / FPS) or \
-                (animated and now - self.last_draw > 1 / 15):
-            self.last_key = key
-            self.redraw()
+        if self.shown and now - self.last_draw > (1 / 30 if self.busy(now) else 1 / 20):
+            self.redraw()                         # always animated; 30 fps only while a goal / pop plays
 
     # ---------- right-click options
     def menu_items(self, add, checked):

@@ -23,12 +23,13 @@ def png_rgba(width, height, rows):
             + chunk(b"IEND", b""))
 
 
-def snapshot(w, name):
-    """Saves a widget's current picture as a PNG with transparency."""
+def snapshot(w, name, height=None):
+    """Saves a widget's current picture as a PNG with transparency (optionally only the top `height` rows)."""
     rows = bytearray()
+    out_h = min(w.h, height or w.h)
     if w.argb:
         data = ctypes.string_at(w.canvas.bits, w.w * w.h * 4)
-        for y in range(w.h):
+        for y in range(out_h):
             rows.append(0)
             line = data[y * w.w * 4:(y + 1) * w.w * 4]
             for x in range(0, w.w * 4, 4):
@@ -47,8 +48,8 @@ def snapshot(w, name):
                 rows += bytes((r, g, b, 0 if (r, g, b) == (1, 2, 3) else 255))
     path = os.path.join(HERE, "docs", name)
     with open(path, "wb") as f:
-        f.write(png_rgba(w.w, w.h, bytes(rows)))
-    print(f"{path} ({w.w}x{w.h})")
+        f.write(png_rgba(w.w, out_h, bytes(rows)))
+    print(f"{path} ({w.w}x{out_h})")
 
 
 def main():
@@ -157,7 +158,7 @@ def main():
     for mode in ks.SB_MODES:
         sb.wcfg["mode"] = mode
         sb.redraw()
-        snapshot(sb, f"score-{mode}.png")
+        snapshot(sb, f"score-{mode}.png", int(sb.H + 0.3 * sb.u))
     sb.wcfg["mode"] = "enhanced"
 
     dash = app.widgets["dash"]

@@ -84,6 +84,9 @@ ROCKET LEAGUE
 SKÓRE ROCKET LEAGUE
   Počítadlo skóre a času nahoře uprostřed obrazovky, stejně velké jako
   to ve hře, takže ho překryje. Ukáže se jen během zápasu.
+  Tvůj tým je vždycky vlevo (první číslo), barvy jsou podle týmů ve hře.
+  Gól: číslo vyskočí, políčko se rozzáří a vyletí konfety.
+  Posledních 30 s okraj času pulzuje, posledních 10 s čas bliká.
   Vzhled: Vylepšený (modrá a oranžová, při gólu bliká), Pastelový RGB,
   Černý RGB. Písmo si vybereš ze seznamu nebo jakékoliv nainstalované
   (Jiné písmo...). Ctrl+Alt+F11 a pravý klik na počítadlo.
@@ -219,6 +222,9 @@ ROCKET LEAGUE
 ROCKET LEAGUE SCORE
   A score and time counter at the top center of the screen, the same size
   as the game's own, so it covers it. Only shows during a match.
+  Your team is always on the left (first number), colors follow the teams.
+  Goal: the number pops, the box lights up and confetti flies out.
+  Last 30 s the time's edge pulses, last 10 s the time blinks.
   Looks: Enhanced (blue and orange, flashes on a goal), Pastel RGB,
   Black RGB. Pick a font from the list or any installed font
   (Other font...). Ctrl+Alt+F11, then right-click the counter.

@@ -32,8 +32,8 @@ If Windows says *"Windows protected your PC"*, click **More info → Run anyway*
 - ⏱️ **Session timer**: how long you've played, the time, and how long the current game runs
 - 🚗 **Rocket League widget**: live score, time, your boost, goals / shots / saves, wins today
   (from the game's official Stats API: nothing is injected into the game)
-- 🏆 **Rocket League score counter**: score and time at the top, the same size as the game's own,
-  in 3 looks (enhanced, pastel RGB, black RGB) with any font you like
+- 🏆 **Rocket League score counter**: score and time at the top, over the game's own; your team first,
+  real team colors, goal animation with confetti, 3 looks (enhanced, pastel RGB, black RGB) and any font
 - 🟩 **Geometry Dash widget**: a cube that jumps with you and counts your jumps
 - 🎵 **Music control** (Spotify, YouTube, …): player panel with cover, title, volume and a clickable progress bar,
   shortcuts to play/pause, skip, seek and change the **music volume** (only the music app, not the game) —
