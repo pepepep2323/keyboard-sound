@@ -43,8 +43,8 @@ from ctypes import wintypes
 
 # ---------------------------------------------------------------- settings
 APP_NAME = "Keyboard Sound"
-WIDGET_TYPES = ["keyboard", "mouse", "player", "stats", "cat", "session", "rocket", "scoreboard", "boost", "dash",
-                "chests", "text", "image"]
+WIDGET_TYPES = ["keyboard", "mouse", "player", "stats", "cat", "session", "clock", "drink", "rocket", "scoreboard",
+                "boost", "dash", "fnmatch", "chests", "text", "image"]
 RL_STYLE_KINDS = ("scoreboard", "boost")      # these share look, font and opacity
 RL_STYLE_KEYS = ("mode", "font", "bold", "opacity")
 FROZEN = getattr(sys, "frozen", False)               # True when running as KeyboardSound.exe
@@ -85,8 +85,16 @@ DEFAULTS = {
     },
     "widgets": None,             # every widget's position / size / options (made on first start)
     "stats": {"date": "", "keys": 0, "clicks": 0, "best_cps": 0, "cat": 0, "rl_w": 0, "rl_l": 0, "gd_jumps": 0,
-              "gd_total": 0, "fn_match": 0, "fn_today": 0, "fn_total": 0, "fn_best": 0},
+              "gd_total": 0, "fn_match": 0, "fn_today": 0, "fn_total": 0, "fn_best": 0,
+              "fnm_count": 0, "fnm_time": 0, "fnm_best": 0, "drinks": 0},
     "welcomed": False,           # first-start tip already shown
+    "obs": False,                # widgets for OBS (local web page on 127.0.0.1, tray icon -> OBS)
+    "theme": "classic",          # look of all widgets: classic, pastel, black, neon, glass, minimal, custom
+    "font": "Segoe UI",          # font of all widgets (each widget can have its own)
+    "custom_theme": {            # your own theme (main menu -> Theme)
+        "bg": "#12131c", "bg_a": 0.85, "border": "#7d9bff", "text": "#ecedf5", "muted": "#9a9cb2",
+        "nums": "effect", "radius": 0.45,
+    },
 }
 ISO_LAYOUT = True      # True = European keyboard (tall Enter), False = US
 
@@ -110,6 +118,7 @@ COLORS = {
 CUSTOM_MAX_SECONDS = 2.0
 MEDIA_ACTIONS = ["play", "next", "prev", "fwd", "back", "vol_up", "vol_down"]
 MEDIA_OK = importlib.util.find_spec("winrt.windows.media.control") is not None
+OCR_OK = importlib.util.find_spec("winrt.windows.media.ocr") is not None      # Windows text recognition
 
 CLICK_VOLUMES = [2.0, 1.75, 1.5, 1.25, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
 HOTKEY_EDIT = 0x57     # F11 (with Ctrl+Alt)
@@ -239,7 +248,7 @@ TEXTS = {
         "c_green": "Zelená", "c_cyan": "Tyrkysová", "c_blue": "Modrá", "c_purple": "Fialová",
         "c_pink": "Růžová", "c_white": "Bílá",
         "running_title": "Keyboard Sound běží",
-        "running_text": "Pravý klik na tuhle ikonu = menu a nápověda.\nCtrl+Alt+F11 = přesunout widgety, Ctrl+Alt+F12 = vypnout.",
+        "running_text": "Klik na tuhle ikonu = hlavní menu, pravý klik = rychlé menu.\nCtrl+Alt+F11 = přesunout widgety, Ctrl+Alt+F12 = vypnout.",
         "already": "Keyboard Sound už běží.\nNajdeš ho jako ikonu klávesnice vpravo dole u hodin.",
         "sound_error": "Tenhle zvuk nejde přehrát:\n{}\n\nZkus jiný soubor (wav, mp3, m4a, ogg, flac, wma).",
         "pick_title": "Vyber zvuk kláves", "pick_filter": "Zvuky",
@@ -300,12 +309,43 @@ TEXTS = {
         "sb_bold": "Tučné písmo", "sb_top": "Zpět nahoru doprostřed", "sb_handwriting": "rukopis",
         "w_boost": "Boost Rocket League",
         "home_widget": "Vrátit na původní místo", "home_all": "Vrátit všechny na původní místo",
+        "fn_windowed": "Fortnite: celá obrazovka v okně (widgety vidět)",
+        "fn_windowed_hint": "",
+        "fn_close_first": "Nejdřív úplně zavři Fortnite a pak to zkus znovu.\n(Hra si nastavení při zavření přepíše.)",
+        "fn_no_config": "Nastavení Fortnite jsem nenašel.\nSpusť hru aspoň jednou a zkus to znovu.",
+        "fn_windowed_done": "Hotovo. Fortnite se příště spustí v režimu „Celá obrazovka v okně“.\n"
+                            "Vypadá to stejně jako celá obrazovka, ale widgety budou vidět.\n"
+                            "(Vrátit to jde ve hře: Nastavení > Video > Režim okna.)",
+        "fs_text_fn": "Fortnite běží v exkluzivní celé obrazovce.\n"
+                      "Oprava jedním klikem: zavři hru, menu > Hry > Fortnite: celá obrazovka v okně.",
+        "sb_names": "Zobrazit názvy týmů",
+        "w_clock": "Hodiny", "clk_analog": "Ručičkové hodiny", "clk_seconds": "Zobrazit sekundy",
+        "clk_timer": "Minutka: {} min", "clk_cancel": "Zrušit minutku", "clk_left": "zbývá {}",
+        "clk_done": "Čas vypršel!", "clk_done_text": "Minutka {} min doběhla.",
+        "days": "pondělí,úterý,středa,čtvrtek,pátek,sobota,neděle",
         "w_chests": "Truhly Fortnite", "fn_match": "truhel v zápase", "fn_line": "dnes {}  ·  celkem {}  ·  rekord {}",
         "fn_closed": "Spusť Fortnite", "fn_key": "Klávesa pro truhlu: {}", "fn_change": "Změnit klávesu pro truhlu...",
         "fn_plus": "+1 truhla", "fn_minus": "-1 truhla (oprava)", "fn_reset_match": "Vynulovat tenhle zápas",
         "fn_reset_all": "Vynulovat všechno", "fn_prompt": "Zmáčkni klávesu nebo tlačítko myši (Esc = zrušit)",
         "fn_hint": "{} = +1 truhla", "mouse_m": "kolečko myši (klik)", "mouse_x1": "myš - boční tlačítko 4",
-        "mouse_x2": "myš - boční tlačítko 5", "bm_home": "Zpět na místo boostu (vpravo dole)",
+        "mouse_x2": "myš - boční tlačítko 5",
+        "fn_auto": "Poznávat truhly samo (čte nápis SEARCH u zaměřovače)",
+        "fn_hint_auto": "otevři truhlu = počítá se samo",
+        "w_fnmatch": "Čas kola (Fortnite)", "fm_lobby": "LOBBY", "fm_warmup": "OSTROV", "fm_bus": "AUTOBUS",
+        "fm_game": "ZÁPAS", "fm_end": "KONEC ZÁPASU", "fm_last": "poslední zápas", "fm_line": "dnes {} zápasů · průměr {} · nejdelší {}",
+        "fm_reset": "Vynulovat dnešní zápasy",
+        "w_drink": "Připomínka pití", "dr_in": "do dalšího pití", "dr_now": "NAPIJ SE!", "dr_today": "dnes {}× voda",
+        "dr_title": "Čas na vodu 💧", "dr_text": "Napij se, ať vydržíš hrát. Další připomínka za {} min.",
+        "dr_interval": "Připomínat každých {} min", "dr_games": "Jen když hraju hru", "dr_done": "Napil jsem se",
+        "dr_reset": "Vynulovat dnešek", "dr_paused": "pauza (žádná hra)",
+        "theme": "Téma", "th_classic": "Klasické", "th_pastel": "Pastelové", "th_black": "Černé RGB", "th_neon": "Neon",
+        "th_glass": "Sklo", "th_minimal": "Bez pozadí", "th_custom": "Vlastní", "th_global": "Podle hlavního tématu",
+        "st_theme": "Podle tématu",
+        "main_menu": "Hlavní menu (nastavení všeho)...", "sound_saved": "Vlastní zvuk nahrán: {}",
+        "obs": "OBS (stream)", "obs_on": "Widgety pro OBS (zdroj Prohlížeč)", "obs_copy": "Zkopírovat adresu pro OBS",
+        "obs_open": "Otevřít návod pro OBS", "obs_copied": "Adresa je ve schránce:\n{}\n\nV OBS: Přidat zdroj > Prohlížeč, "
+        "vlož adresu, šířka {} a výška {}.", "obs_fail": "Server pro OBS se nepodařilo spustit (port {} je obsazený).",
+        "bm_home": "Zpět na místo boostu (vpravo dole)",
         "sb_same": "Vzhled, písmo a průhlednost má skóre i boost stejné",
         "gd_time": "Hraješ {}", "gd_reset": "Vynulovat dnešní skoky",
         "fs_title": "Widgety nebyly ve hře vidět",
@@ -325,7 +365,7 @@ TEXTS = {
         "c_green": "Green", "c_cyan": "Cyan", "c_blue": "Blue", "c_purple": "Purple",
         "c_pink": "Pink", "c_white": "White",
         "running_title": "Keyboard Sound is running",
-        "running_text": "Right-click this icon for the menu and help.\nCtrl+Alt+F11 = move widgets, Ctrl+Alt+F12 = quit.",
+        "running_text": "Click this icon for the main menu, right-click for the quick menu.\nCtrl+Alt+F11 = move widgets, Ctrl+Alt+F12 = quit.",
         "already": "Keyboard Sound is already running.\nLook for the keyboard icon near the clock (bottom right).",
         "sound_error": "This sound can't be played:\n{}\n\nTry another file (wav, mp3, m4a, ogg, flac, wma).",
         "pick_title": "Choose a key sound", "pick_filter": "Sounds",
@@ -385,12 +425,43 @@ TEXTS = {
         "sb_bold": "Bold font", "sb_top": "Back to top center", "sb_handwriting": "handwriting",
         "w_boost": "Rocket League boost",
         "home_widget": "Back to its original place", "home_all": "Put all back in their original places",
+        "fn_windowed": "Fortnite: windowed fullscreen (widgets visible)",
+        "fn_windowed_hint": "",
+        "fn_close_first": "Close Fortnite completely first, then try again.\n(The game overwrites its settings when it closes.)",
+        "fn_no_config": "Fortnite settings not found.\nStart the game at least once and try again.",
+        "fn_windowed_done": "Done. Fortnite will start in \"Windowed Fullscreen\" next time.\n"
+                            "It looks the same as fullscreen, but the widgets will be visible.\n"
+                            "(You can change it back in the game: Settings > Video > Window Mode.)",
+        "fs_text_fn": "Fortnite runs in exclusive fullscreen.\n"
+                      "One-click fix: close the game, menu > Games > Fortnite: windowed fullscreen.",
+        "sb_names": "Show team names",
+        "w_clock": "Clock", "clk_analog": "Analog clock", "clk_seconds": "Show seconds",
+        "clk_timer": "Timer: {} min", "clk_cancel": "Cancel the timer", "clk_left": "{} left",
+        "clk_done": "Time's up!", "clk_done_text": "Your {} min timer is done.",
+        "days": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday",
         "w_chests": "Fortnite chests", "fn_match": "chests this match", "fn_line": "today {}  ·  total {}  ·  record {}",
         "fn_closed": "Start Fortnite", "fn_key": "Chest key: {}", "fn_change": "Change the chest key...",
         "fn_plus": "+1 chest", "fn_minus": "-1 chest (undo)", "fn_reset_match": "Reset this match",
         "fn_reset_all": "Reset everything", "fn_prompt": "Press a key or mouse button (Esc = cancel)",
         "fn_hint": "{} = +1 chest", "mouse_m": "mouse wheel (click)", "mouse_x1": "mouse side button 4",
-        "mouse_x2": "mouse side button 5", "bm_home": "Back to the boost meter's place (bottom right)",
+        "mouse_x2": "mouse side button 5",
+        "fn_auto": "Recognize chests by itself (reads SEARCH by the crosshair)",
+        "fn_hint_auto": "open a chest = counted by itself",
+        "w_fnmatch": "Match time (Fortnite)", "fm_lobby": "LOBBY", "fm_warmup": "ISLAND", "fm_bus": "BATTLE BUS",
+        "fm_game": "MATCH", "fm_end": "MATCH OVER", "fm_last": "last match", "fm_line": "today {} matches · avg {} · longest {}",
+        "fm_reset": "Reset today's matches",
+        "w_drink": "Drink reminder", "dr_in": "until the next drink", "dr_now": "DRINK!", "dr_today": "today {}× water",
+        "dr_title": "Time for water 💧", "dr_text": "Have a drink to keep playing well. Next reminder in {} min.",
+        "dr_interval": "Remind every {} min", "dr_games": "Only while I play a game", "dr_done": "I had a drink",
+        "dr_reset": "Reset today", "dr_paused": "paused (no game)",
+        "theme": "Theme", "th_classic": "Classic", "th_pastel": "Pastel", "th_black": "Black RGB", "th_neon": "Neon",
+        "th_glass": "Glass", "th_minimal": "No background", "th_custom": "Custom", "th_global": "Main theme",
+        "st_theme": "Follow the theme",
+        "main_menu": "Main menu (all settings)...", "sound_saved": "Your sound is loaded: {}",
+        "obs": "OBS (stream)", "obs_on": "Widgets for OBS (Browser source)", "obs_copy": "Copy the address for OBS",
+        "obs_open": "Open the OBS how-to", "obs_copied": "The address is in your clipboard:\n{}\n\nIn OBS: Add source > Browser, "
+        "paste the address, width {} and height {}.", "obs_fail": "The OBS server couldn't start (port {} is taken).",
+        "bm_home": "Back to the boost meter's place (bottom right)",
         "sb_same": "Score and boost share the look, font and opacity",
         "gd_time": "Playing {}", "gd_reset": "Reset today's jumps",
         "fs_title": "Widgets weren't visible in the game",
@@ -500,6 +571,7 @@ user32.GetWindowLongPtrW.restype = ctypes.c_ssize_t
 user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
 user32.SetWindowLongPtrW.restype = ctypes.c_ssize_t
 user32.SystemParametersInfoW.argtypes = [wintypes.UINT, wintypes.UINT, ctypes.c_void_p, wintypes.UINT]
+user32.MessageBeep.argtypes = [wintypes.UINT]
 kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
 kernel32.GetModuleHandleW.restype = wintypes.HMODULE
 winmm.waveOutOpen.argtypes = [ctypes.POINTER(wintypes.HANDLE), wintypes.UINT, ctypes.POINTER(WAVEFORMATEX),
@@ -1045,12 +1117,19 @@ def mix(a, b, t):
 DARK = (0.06, 0.06, 0.08)
 WHITE = (1.0, 1.0, 1.0)
 INK = (0.05, 0.05, 0.05)
-KEY_STYLES = ["rgb", "pastel", "black"]
+KEY_STYLES = ["rgb", "pastel", "black", "theme"]
 
 
-def style_colors(style, key):
-    """(fill, outline, text, pressed fill, pressed outline, pressed text) of one key in the pastel / black look."""
+def style_colors(style, key, theme=None, accent=None):
+    """(fill, outline, text, pressed fill, pressed outline, pressed text) of one key in the pastel / black / theme look."""
     body = key.get("body")
+    if style == "theme" and theme is not None:
+        bg = theme.bg if theme.bg is not None and theme.bg_a >= 0.3 else (0.08, 0.08, 0.1)
+        acc = accent or ACCENT
+        if body:
+            return mix(bg, theme.text_rgb, 0.04), mix(bg, acc, 0.45), theme.text_rgb, None, None, None
+        return (mix(bg, theme.text_rgb, 0.07), mix(bg, acc, 0.55), theme.text_rgb,
+                acc, mix(acc, WHITE, 0.4), bg if sum(acc) / 3 > 0.55 else WHITE)
     if style == "pastel":
         if body:
             return (0.96, 0.95, 0.99), (0.78, 0.76, 0.87), INK, None, None, None
@@ -1082,6 +1161,9 @@ NEW_WIDGETS = {          # built-in widgets added in later versions (added to ol
     "rocket": {"type": "rocket", "visible": True},
     "scoreboard": {"type": "scoreboard", "visible": True, "mode": "enhanced", "font": "Bahnschrift", "bold": True},
     "boost": {"type": "boost", "visible": True},
+    "clock": {"type": "clock", "visible": True},
+    "drink": {"type": "drink", "visible": True, "interval": 30},
+    "fnmatch": {"type": "fnmatch", "visible": True},
     "chests": {"type": "chests", "visible": True, "key": ["m", "X2"]},
     "dash": {"type": "dash", "visible": True},
 }
@@ -1582,11 +1664,23 @@ def rl_worker(ready):
 
 
 FORTNITE_EXE = "fortniteclient-win64-shipping.exe"
-fn_wanted = threading.Event()      # set while the chest widget wants to know when a Fortnite match starts
+FN_SETTINGS_SECTION = "/Script/FortniteGame.FortGameUserSettings"
+
+
+def fn_settings_path():
+    return os.path.join(os.environ.get("LOCALAPPDATA", ""), "FortniteGame", "Saved", "Config", "WindowsClient",
+                        "GameUserSettings.ini")
+
+
+def fn_windowed_on():
+    """0 = exclusive fullscreen (nothing can be drawn over it), 1 = windowed fullscreen, 2 = window."""
+    return read_ini(fn_settings_path(), FN_SETTINGS_SECTION).get("FullscreenMode", "0").strip() != "0"
+
+fn_wanted = threading.Event()      # set while a Fortnite widget wants to know about matches
 
 
 def fortnite_worker(ready):
-    """Follows Fortnite's own log file: a new match (warm-up island) resets the chest counter."""
+    """Follows Fortnite's own log file: match start (island), battle bus, match, end, back in the lobby."""
     ready.append(None)
     path = os.path.join(os.environ.get("LOCALAPPDATA", ""), "FortniteGame", "Saved", "Logs", "FortniteGame.log")
     f, ident, rest = None, None, b""
@@ -1608,8 +1702,13 @@ def fortnite_worker(ready):
                 lines = (rest + data).split(b"\n")
                 rest = lines.pop()
                 for line in lines:
-                    if b"HandleGamePhaseChanged" in line and b"NewPhase = EAthenaGamePhase::Warmup" in line:
-                        ui_events.put(("fn", "match_start"))
+                    event = None
+                    if b"HandleGamePhaseChanged" in line and b"NewPhase = EAthenaGamePhase::" in line:
+                        event = ("phase", line.split(b"NewPhase = EAthenaGamePhase::")[1].split()[0].decode(errors="replace"))
+                    elif b"LogLoad: LoadMap: /Game/Maps/Frontend" in line:
+                        event = ("lobby", "")
+                    if event:
+                        ui_events.put(("fn", event))
                         wake_overlay()
                 continue
         except OSError:
@@ -1624,6 +1723,718 @@ def key_label(kid):
     if kid[0] == "m":
         return T({"M": "mouse_m", "X1": "mouse_x1", "X2": "mouse_x2"}.get(kid[1], "mouse_m"))
     return bind_text(0, vk_from_key_id(kid))
+
+# Fortnite's prompt on a chest is just "[E] SEARCH" (OCR sometimes reads SEARCN / SEARCR / SEARcu);
+# "Cannot Do That Now" right after it means the chest is already opening.
+SEARCH_RE = __import__("re").compile(r"s[e3][a4]r[c(]|prohled|durchsuch|fouiller|buscar")
+fn_ocr_requests = queue.Queue(maxsize=3)      # (time, kind, w, h, BGRA pixels) next to the crosshair
+OCR_THREAD_STARTED = False
+
+
+def grab_screen(x, y, w, h):
+    """Pixels of a part of the screen, as the game shows it (our own widgets are not included)."""
+    screen = user32.GetDC(None)
+    dc = gdi32.CreateCompatibleDC(screen)
+    info = BITMAPINFOHEADER(ctypes.sizeof(BITMAPINFOHEADER), w, -h, 1, 32, 0, 0, 0, 0, 0, 0)
+    bits = ctypes.c_void_p()
+    bmp = gdi32.CreateDIBSection(screen, ctypes.byref(info), 0, ctypes.byref(bits), None, 0)
+    old = gdi32.SelectObject(dc, bmp)
+    gdi32.BitBlt(dc, 0, 0, w, h, screen, x, y, SRCCOPY)              # no CAPTUREBLT: layered widgets stay out
+    data = ctypes.string_at(bits, w * h * 4)
+    gdi32.SelectObject(dc, old)
+    gdi32.DeleteObject(bmp)
+    gdi32.DeleteDC(dc)
+    user32.ReleaseDC(None, screen)
+    return data
+
+
+def prompt_area():
+    """Where Fortnite shows "SEARCH" prompts: right of and below the crosshair."""
+    sw, sh = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    return int(sw * 0.47), int(sh * 0.44), int(sw * 0.28), int(sh * 0.22)
+
+
+def fn_ocr_worker(ready):
+    """Reads the prompt next to the crosshair with Windows' text recognition (nothing touches the game)."""
+    ready.append(None)
+    import asyncio
+    from winrt.windows.media.ocr import OcrEngine
+    from winrt.windows.graphics.imaging import SoftwareBitmap, BitmapPixelFormat, BitmapAlphaMode
+    from winrt.windows.storage.streams import DataWriter
+    engine = OcrEngine.try_create_from_user_profile_languages()
+    loop = asyncio.new_event_loop()
+
+    async def read(data, w, h):
+        dw = DataWriter()
+        dw.write_bytes(data)
+        bmp = SoftwareBitmap.create_copy_from_buffer(dw.detach_buffer(), BitmapPixelFormat.BGRA8, w, h,
+                                                     BitmapAlphaMode.PREMULTIPLIED)
+        result = await engine.recognize_async(bmp)
+        return " | ".join(line.text for line in result.lines)
+
+    while True:
+        t, kind, w, h, data = fn_ocr_requests.get()
+        try:
+            text = loop.run_until_complete(read(data, w, h))
+        except Exception:
+            text = ""
+        ui_events.put(("fn_ocr", (t, kind, bool(SEARCH_RE.search(text.lower())))))
+        wake_overlay()
+
+
+# ---------------------------------------------------------------- OBS: widgets as a local web page (Browser source)
+OBS_PORT = 47123                 # first port tried for the local web server (main menu + OBS)
+WEB_TOKEN = __import__("secrets").token_urlsafe(18)     # only the main menu window knows it
+obs_enabled = False
+web_port = OBS_PORT
+obs_lock = threading.Lock()
+obs_frames = {}          # widget id -> (pixel format, w, h, raw pixels, version)
+obs_wanted = {}          # widget id -> time a page last asked for it (only those get copied)
+obs_layout = {"screen": [1920, 1080], "items": []}
+obs_server = None
+PNG_CLSID = GUID("557CF406-1A04-11D3-9A73-0000F81EF32E")
+FMT_PARGB, FMT_RGB = 0xE200B, 0x22009
+ole32 = ctypes.WinDLL("ole32")
+ole32.CreateStreamOnHGlobal.argtypes = [wintypes.HGLOBAL, wintypes.BOOL, ctypes.POINTER(ctypes.c_void_p)]
+ole32.GetHGlobalFromStream.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.HGLOBAL)]
+kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+kernel32.GlobalLock.restype = ctypes.c_void_p
+kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+EMPTY_PNG = None
+
+
+def encode_png(fmt, w, h, data, key=True):
+    """Raw widget pixels -> PNG with transparency (GDI+ does the work; the see-through color key becomes alpha)."""
+    ensure_gdiplus()
+    buf = ctypes.create_string_buffer(data, len(data))
+    src = ctypes.c_void_p()
+    gdiplus.GdipCreateBitmapFromScan0(w, h, w * 4, fmt, buf, ctypes.byref(src))
+    img, extra = src, []
+    if fmt == FMT_RGB and key:                     # plain GDI widget: make the color key see-through
+        dst, g, attr = ctypes.c_void_p(), ctypes.c_void_p(), ctypes.c_void_p()
+        gdiplus.GdipCreateBitmapFromScan0(w, h, 0, FMT_PARGB, None, ctypes.byref(dst))
+        gdiplus.GdipGetImageGraphicsContext(dst, ctypes.byref(g))
+        gdiplus.GdipCreateImageAttributes(ctypes.byref(attr))
+        key = 0xFF000000 | 0x010203                # TRANSPARENT_KEY (0x00030201 as COLORREF) in ARGB order
+        gdiplus.GdipSetImageAttributesColorKeys(attr, 0, 1, key, key)
+        gdiplus.GdipDrawImageRectRectI(g, src, 0, 0, w, h, 0, 0, w, h, 2, attr, None, None)
+        gdiplus.GdipDisposeImageAttributes(attr)
+        gdiplus.GdipDeleteGraphics(g)
+        img, extra = dst, [src]
+    stream = ctypes.c_void_p()
+    ole32.CreateStreamOnHGlobal(None, True, ctypes.byref(stream))
+    gdiplus.GdipSaveImageToStream(img, stream, ctypes.byref(PNG_CLSID), None)
+    size = ctypes.c_ulonglong()
+    com(stream, 5, ctypes.c_longlong(0), 2, ctypes.byref(size),          # IStream::Seek(0, END) = its size
+        argtypes=(ctypes.c_longlong, wintypes.DWORD, ctypes.POINTER(ctypes.c_ulonglong)))
+    hg = wintypes.HGLOBAL()
+    ole32.GetHGlobalFromStream(stream, ctypes.byref(hg))
+    ptr = kernel32.GlobalLock(hg)
+    png = ctypes.string_at(ptr, size.value) if ptr else b""
+    kernel32.GlobalUnlock(hg)
+    com(stream, 2, restype=wintypes.ULONG)                                  # Release
+    gdiplus.GdipDisposeImage(img)
+    for x in extra:
+        gdiplus.GdipDisposeImage(x)
+    return png
+
+
+OBS_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>Keyboard Sound - OBS</title>
+<style>html,body{margin:0;background:transparent;overflow:hidden}img{position:absolute;image-rendering:auto}</style>
+</head><body><script>
+const ONE = %s, imgs = {};
+function pump(id, img) {
+  if (!img.isConnected || img.dataset.on !== '1') { img.dataset.busy = ''; return; }
+  img.dataset.busy = '1';
+  const next = new Image();
+  next.onload = () => { img.src = next.src; setTimeout(() => pump(id, img), 60); };
+  next.onerror = () => setTimeout(() => pump(id, img), 500);
+  next.src = '/frame/' + encodeURIComponent(id) + '.png?' + Date.now();
+}
+async function layout() {
+  try {
+    const L = await (await fetch('/layout.json?' + Date.now())).json();
+    const seen = new Set();
+    for (const it of L.items) {
+      if (ONE && it.id !== ONE) continue;
+      seen.add(it.id);
+      let img = imgs[it.id];
+      if (!img) { img = imgs[it.id] = document.createElement('img'); document.body.appendChild(img); }
+      img.style.left = (ONE ? 0 : it.x) + 'px'; img.style.top = (ONE ? 0 : it.y) + 'px';
+      img.style.width = it.w + 'px'; img.style.height = it.h + 'px';
+      img.style.display = it.shown ? 'block' : 'none';
+      img.dataset.on = it.shown ? '1' : '';
+      if (it.shown && !img.dataset.busy) pump(it.id, img);
+    }
+    for (const id in imgs) if (!seen.has(id)) { imgs[id].remove(); delete imgs[id]; }
+  } catch (e) {}
+  setTimeout(layout, 1000);
+}
+layout();
+</script></body></html>"""
+
+
+def obs_index_html():
+    sw, sh = obs_layout["screen"]
+    rows = "".join(f'<li><a href="/w/{it["id"]}">{it["label"]}</a> - {it["w"]}x{it["h"]}</li>'
+                   for it in obs_layout["items"])
+    base = f"http://127.0.0.1:{web_port}"
+    return f"""<!doctype html><html><head><meta charset="utf-8"><title>Keyboard Sound - OBS</title>
+<style>body{{font:16px Segoe UI,sans-serif;max-width:760px;margin:40px auto;padding:0 16px;background:#14141c;color:#e8e8f0}}
+code{{background:#2a2a3a;padding:2px 6px;border-radius:6px}}a{{color:#9db4ff}}</style></head><body>
+<h1>Keyboard Sound → OBS</h1>
+<p><b>{"Všechny widgety najednou" if LANG == "cs" else "All widgets at once"}:</b> <code>{base}/all</code>
+({"šířka" if LANG == "cs" else "width"} {sw}, {"výška" if LANG == "cs" else "height"} {sh})</p>
+<ol><li>{"OBS → Zdroje → + → Prohlížeč" if LANG == "cs" else "OBS → Sources → + → Browser"}</li>
+<li>URL: <code>{base}/all</code></li>
+<li>{"Šířka" if LANG == "cs" else "Width"} {sw}, {"výška" if LANG == "cs" else "height"} {sh}</li></ol>
+<p>{"Widgety jsou vidět i na streamu, když hra běží v exkluzivní celé obrazovce." if LANG == "cs"
+    else "The widgets show on stream even when the game runs in exclusive fullscreen."}</p>
+<p>{"Jeden widget zvlášť" if LANG == "cs" else "One widget on its own"}:</p><ul>{rows}</ul></body></html>"""
+
+
+class ObsHandler(__import__("http.server").server.BaseHTTPRequestHandler):
+    cache = {}
+
+    def log_message(self, *args):
+        pass
+
+    def send(self, body, ctype, code=200):
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        """Main menu actions: only with the window's secret token (no other page can change settings)."""
+        if self.path != "/api/do" or self.headers.get("X-Token") != WEB_TOKEN:
+            self.send(b"forbidden", "text/plain", 403)
+            return
+        try:
+            size = int(self.headers.get("Content-Length") or 0)
+            if size > 40_000_000:
+                raise ValueError("too big")
+            data = json.loads(self.rfile.read(size) or b"{}")
+            result = ask_app(str(data.pop("a", "state")), data)
+            self.send(json.dumps(result).encode("utf-8"), "application/json")
+        except (ValueError, ConnectionError, OSError) as e:
+            try:
+                self.send(json.dumps({"msg": str(e)}).encode("utf-8"), "application/json", 400)
+            except OSError:
+                pass
+
+    def do_GET(self):
+        global EMPTY_PNG
+        path = self.path.split("?")[0]
+        query = __import__("urllib.parse").parse.parse_qs(self.path.partition("?")[2])
+        if path == "/menu":
+            if query.get("t", [""])[0] != WEB_TOKEN:
+                self.send(b"forbidden", "text/plain", 403)
+                return
+            page = MENU_PAGE.replace("%%TOKEN%%", WEB_TOKEN).replace("%%LANG%%", LANG)
+            self.send(page.encode("utf-8"), "text/html; charset=utf-8")
+            return
+        if not obs_enabled:                        # the OBS pages only while "Widgets for OBS" is on
+            self.send(b"OBS is off in Keyboard Sound", "text/plain", 404)
+            return
+        try:
+            if path == "/":
+                self.send(obs_index_html().encode("utf-8"), "text/html; charset=utf-8")
+            elif path == "/all":
+                self.send((OBS_PAGE % "null").encode("utf-8"), "text/html; charset=utf-8")
+            elif path.startswith("/w/"):
+                wid = __import__("urllib.parse").parse.unquote(path[3:])
+                self.send((OBS_PAGE % json.dumps(wid)).encode("utf-8"), "text/html; charset=utf-8")
+            elif path == "/layout.json":
+                with obs_lock:
+                    body = json.dumps(obs_layout).encode("utf-8")
+                self.send(body, "application/json")
+            elif path.startswith("/frame/") and path.endswith(".png"):
+                wid = __import__("urllib.parse").parse.unquote(path[7:-4])
+                with obs_lock:
+                    obs_wanted[wid] = time.monotonic()
+                    frame = obs_frames.get(wid)
+                if not frame:
+                    if EMPTY_PNG is None:
+                        EMPTY_PNG = encode_png(FMT_PARGB, 1, 1, b"\\0\\0\\0\\0")
+                    self.send(EMPTY_PNG, "image/png")
+                    return
+                fmt, w, h, data, version = frame
+                cached = self.cache.get(wid)
+                if not cached or cached[0] != version:
+                    cached = self.cache[wid] = (version, encode_png(fmt, w, h, data))
+                self.send(cached[1], "image/png")
+            else:
+                self.send(b"not found", "text/plain", 404)
+        except (ConnectionError, OSError):
+            pass
+
+
+def web_start():
+    """The local web server (only this PC can reach it): the main menu window and the OBS pages."""
+    global obs_server, web_port
+    if obs_server:
+        return True
+    import http.server
+    class Server(http.server.ThreadingHTTPServer):
+        allow_reuse_address = False               # never share the port with another program
+
+        def server_bind(self):
+            if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
+
+    for port in range(OBS_PORT, OBS_PORT + 10):
+        try:
+            obs_server = Server(("127.0.0.1", port), ObsHandler)
+        except OSError:
+            continue
+        web_port = port
+        obs_server.daemon_threads = True
+        threading.Thread(target=obs_server.serve_forever, daemon=True).start()
+        return True
+    return False
+
+
+def ask_app(action, data, timeout=120):
+    """Runs a main-menu action on the app's own thread and waits for the answer."""
+    reply = queue.Queue()
+    ui_events.put(("web", (action, data, reply)))
+    wake_overlay()
+    try:
+        return reply.get(timeout=timeout)
+    except queue.Empty:
+        return {"msg": "timeout"}
+
+
+MENU_PAGE = r'''<!doctype html>
+<html lang="%%LANG%%"><head><meta charset="utf-8"><title>Keyboard Sound</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0e0f15;--side:#13141c;--card:#191a24;--line:#2a2b3a;--text:#ecedf5;--muted:#9a9cb2;--acc:#7d9bff;--acc2:#b07dff;--ok:#3ddc84;--bad:#ff5c6c}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.45 "Segoe UI",system-ui,sans-serif}
+body{display:flex;overflow:hidden}
+aside{width:220px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 12px;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;margin:0 8px 16px}
+.brand i{width:30px;height:30px;border-radius:9px;background:conic-gradient(from 0deg,#ff4d6d,#ffb84d,#f9f871,#4dff9a,#4dc3ff,#9b6bff,#ff4d6d)}
+nav button{all:unset;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--muted);cursor:pointer;font-weight:600}
+nav button:hover{background:#1d1f2b;color:var(--text)}nav button.on{background:linear-gradient(90deg,#2a2f55,#20223a);color:#fff}
+nav button span{width:22px;text-align:center}
+.side-bottom{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+main{flex:1;overflow:auto;padding:26px 30px 60px}
+h1{margin:0 0 4px;font-size:24px}.sub{color:var(--muted);margin:0 0 20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card h3{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;min-height:38px}
+.row+.row{border-top:1px solid #23243200}
+.row label{color:var(--text)}.row .hint{color:var(--muted);font-size:13px}
+.col{display:flex;flex-direction:column;gap:2px}
+.sw{position:relative;width:44px;height:24px;flex:none}.sw input{opacity:0;width:0;height:0}
+.sw b{position:absolute;inset:0;border-radius:24px;background:#353748;transition:.15s;cursor:pointer}
+.sw b:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.15s}
+.sw input:checked+b{background:var(--acc)}.sw input:checked+b:before{transform:translateX(20px)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}.seg button{all:unset;padding:6px 12px;border-radius:9px;background:#232534;color:var(--muted);cursor:pointer;font-weight:600;font-size:14px}
+.seg button:hover{color:var(--text)}.seg button.on{background:var(--acc);color:#0c0d14}
+input[type=range]{width:180px;accent-color:var(--acc)}
+select,textarea,input[type=text]{background:#232534;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:7px 10px;font:inherit;max-width:230px}
+textarea{width:100%;max-width:none;min-height:64px;resize:vertical}
+.btn{all:unset;padding:8px 14px;border-radius:10px;background:#272a3d;color:var(--text);cursor:pointer;font-weight:600;font-size:14px;text-align:center}
+.btn:hover{background:#30344c}.btn.pri{background:linear-gradient(90deg,var(--acc),var(--acc2));color:#0b0c12}.btn.bad{background:#3a2028;color:#ffb3bd}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.sw-list{display:flex;flex-wrap:wrap;gap:6px}.dot{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.dot.on{border-color:#fff;box-shadow:0 0 0 2px var(--acc)}
+.wcard{display:flex;flex-direction:column;gap:4px}
+.wtitle{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wtitle b{font-size:15px}.tag{font-size:12px;color:var(--muted);background:#232534;border-radius:6px;padding:1px 7px}
+details summary{cursor:pointer;color:var(--acc);font-weight:600;margin-top:6px}
+.kbd{background:#232534;border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-weight:600;font-size:13px;white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;background:#262a45;border:1px solid #3b4272;color:#fff;padding:12px 18px;border-radius:12px;max-width:560px;white-space:pre-line;transition:.25s;box-shadow:0 10px 30px #0008;z-index:9}
+#toast.show{opacity:1;transform:translateX(-50%)}
+.fontpv{font-size:22px;padding:6px 0;color:#fff;min-height:40px}
+.muted{color:var(--muted)}
+@media (max-width:760px){aside{width:64px;padding:14px 6px}nav button{justify-content:center}nav button em,.brand em,.side-bottom .btn em{display:none}main{padding:18px}}
+</style></head><body>
+<aside>
+  <div class="brand"><i></i><em>Keyboard Sound</em></div>
+  <nav id="nav"></nav>
+  <div class="side-bottom">
+    <button class="btn" id="editBtn"></button>
+    <button class="btn bad" id="quitBtn"></button>
+  </div>
+</aside>
+<main id="main"></main>
+<div id="toast"></div>
+<script>
+const TOKEN = "%%TOKEN%%", LANG = "%%LANG%%";
+const T = {
+ cs: {sound:"Zvuk", look:"Vzhled", widgets:"Widgety", rl:"Rocket League", music:"Hudba", games:"Hry", obs:"OBS (stream)", system:"Systém",
+  edit_on:"✓ Hotovo (uložit pozice)", edit_off:"✥ Přesunout widgety", quit:"Ukončit aplikaci", quit_q:"Opravdu ukončit Keyboard Sound?",
+  sound_sub:"Zvuk při každém stisku klávesy.", sound_on:"Zvuk kláves", which:"Zvuk", custom:"Vlastní", upload:"Nahrát vlastní zvuk…", test:"▶ Vyzkoušet",
+  volume:"Hlasitost kliků", mouse:"Cvakat i při klikání myší", vol_hint:"Ctrl+Alt+PgUp / PgDn",
+  look_sub:"Světelné efekty a barvy klávesnice a ostatních widgetů.", effect:"Efekt", color:"Barva", kstyle:"Vzhled klávesnice", opacity:"Průhlednost widgetů", show:"Zobrazit widgety",
+  w_sub:"Každý widget zvlášť: zapnout, velikost, možnosti. Přesouvá se tlačítkem vlevo dole (nebo Ctrl+Alt+F11).", size:"Velikost", home:"Na původní místo", home_all:"Všechny na původní místo",
+  arrange:"Rozmístit do rohu", add_text:"+ Text", add_image:"+ Obrázek", remove:"Odstranit", options:"Možnosti", numpad:"Numpad", bg:"Pozadí", fur:"Barva kočky",
+  analog:"Ručičkové", seconds:"Sekundy", timer:"Minutka", cancel:"Zrušit", text:"Text", save:"Uložit", tcolor:"Barva textu", bold:"Tučně", change_img:"Změnit obrázek…",
+  reset_today:"Vynulovat dnešek", reset_best:"Vynulovat rekord", reset_count:"Vynulovat počítadlo", reset:"Vynulovat", pause:"Pozastavit / pokračovat", reset_wins:"Vynulovat výhry", reset_jumps:"Vynulovat skoky",
+  rl_sub:"Počítadlo skóre a boost přes ty herní. Vzhled, písmo a průhlednost mají společné.", rl_look:"Vzhled", font:"Písmo", font_rec:"Doporučená", font_hand:"Rukopis", font_all:"Všechna písma",
+  names:"Názvy týmů", rl_opacity:"Průhlednost skóre a boostu", rl_game:"Nastavení hry", live:"Živá data pro widgety", border:"Celá obrazovka bez okraje (widgety vidět)",
+  live_hint:"Zavři hru, zapni, pak hru spusť.", now_rate:"teď {}× za s",
+  music_sub:"Spotify, YouTube a další přehrávače.", shortcuts:"Zkratky", change:"Změnit", press_now:"Stiskni novou zkratku… (Esc = zrušit)", reset_binds:"Obnovit výchozí",
+  seek:"Krok posunu", vstep:"Krok hlasitosti", ads:"Ztlumit reklamy ve Spotify", no_media:"Ovládání hudby není k dispozici.",
+  games_sub:"Aby byly widgety ve hře vidět, hra musí běžet v okně bez okraje.", fn_win:"Fortnite: celá obrazovka v okně",
+  obs_sub:"Widgety jako zdroj Prohlížeč v OBS – uvidí je i diváci.", obs_on:"Widgety pro OBS", obs_url:"Adresa", copy:"Kopírovat", obs_how:"V OBS: Zdroje → + → Prohlížeč, vlož adresu, šířka {} a výška {}.",
+  system_sub:"Spouštění a nápověda.", autostart:"Spouštět s Windows", stats:"Dnešní statistiky", keys:"kláves", clicks:"kliků", best:"rekord CPS", cat:"kočka",
+  help:"Nápověda", help_text:"Ctrl+Alt+F11 – přesunout widgety (táhni, kolečko = velikost, pravý klik = možnosti)\nCtrl+Alt+F12 – vypnout\nCtrl+Alt+PgUp / PgDn – hlasitost kliků\nCtrl+Alt+šipky – hudba",
+  copied:"Zkopírováno", saved:"Uloženo", hidden:"skrytý", only_game:"jen ve hře",
+  theme:"Téma", theme_sub:"Vzhled a písmo všech widgetů. Každý widget může mít i vlastní (Widgety → Možnosti).", gfont:"Písmo všech widgetů",
+  custom_t:"Vlastní téma", c_bg:"Pozadí", c_bga:"Průhlednost pozadí", c_border:"Okraj", c_text:"Text", c_muted:"Popisky", c_nums:"Čísla",
+  c_radius:"Zaoblení", b_color:"Barva", b_glow:"Podle efektu", b_rainbow:"Duha", b_pastel:"Pastel", b_neon:"Neon", b_none:"Žádný",
+  n_color:"Barva", n_effect:"Podle efektu", n_rainbow:"Duha", n_pastel:"Pastel", wtheme:"Téma widgetu", wfont:"Písmo widgetu",
+  same_as_main:"Podle hlavního", fortnite:"Fortnite", fn_sub:"Čas kola a počítadlo truhel. Fortnite neposílá data, proto se čte jeho log a obrazovka.",
+  fm_title:"Čas kola", chests:"Truhly", fn_auto:"Poznávat truhly samo (čte nápis SEARCH u zaměřovače)", fn_key:"Ruční +1 tlačítko",
+  plus:"+1", minus:"−1", reset_match:"Vynulovat zápas", reset_all:"Vynulovat vše", reset_fm:"Vynulovat dnešní zápasy",
+  interval:"Připomínat každých", drink_games:"Jen když hraju hru", drank:"Napil jsem se", fn_win:"Fortnite: celá obrazovka v okně"},
+ en: {sound:"Sound", look:"Look", widgets:"Widgets", rl:"Rocket League", music:"Music", games:"Games", obs:"OBS (stream)", system:"System",
+  edit_on:"✓ Done (save positions)", edit_off:"✥ Move widgets", quit:"Quit the app", quit_q:"Really quit Keyboard Sound?",
+  sound_sub:"A click on every key press.", sound_on:"Key sound", which:"Sound", custom:"Your own", upload:"Load your own sound…", test:"▶ Try it",
+  volume:"Click volume", mouse:"Click sound on mouse buttons too", vol_hint:"Ctrl+Alt+PgUp / PgDn",
+  look_sub:"Light effects and colors of the keyboard and the other widgets.", effect:"Effect", color:"Color", kstyle:"Keyboard look", opacity:"Widget opacity", show:"Show widgets",
+  w_sub:"Every widget on its own: on/off, size, options. Move them with the button bottom left (or Ctrl+Alt+F11).", size:"Size", home:"Back to its place", home_all:"All back to their places",
+  arrange:"Arrange in a corner", add_text:"+ Text", add_image:"+ Image", remove:"Remove", options:"Options", numpad:"Numpad", bg:"Background", fur:"Cat color",
+  analog:"Analog", seconds:"Seconds", timer:"Timer", cancel:"Cancel", text:"Text", save:"Save", tcolor:"Text color", bold:"Bold", change_img:"Change image…",
+  reset_today:"Reset today", reset_best:"Reset record", reset_count:"Reset counter", reset:"Reset", pause:"Pause / resume", reset_wins:"Reset wins", reset_jumps:"Reset jumps",
+  rl_sub:"Score counter and boost meter over the game's own. They share look, font and opacity.", rl_look:"Look", font:"Font", font_rec:"Recommended", font_hand:"Handwriting", font_all:"All fonts",
+  names:"Team names", rl_opacity:"Score and boost opacity", rl_game:"Game settings", live:"Live data for the widgets", border:"Borderless fullscreen (widgets visible)",
+  live_hint:"Close the game, turn on, then start the game.", now_rate:"now {}× per s",
+  music_sub:"Spotify, YouTube and other players.", shortcuts:"Shortcuts", change:"Change", press_now:"Press the new shortcut… (Esc = cancel)", reset_binds:"Reset to default",
+  seek:"Seek step", vstep:"Volume step", ads:"Mute Spotify ads", no_media:"Music control is not available.",
+  games_sub:"Widgets are only visible over a game running in borderless / windowed fullscreen.", fn_win:"Fortnite: windowed fullscreen",
+  obs_sub:"Widgets as a Browser source in OBS – your viewers see them too.", obs_on:"Widgets for OBS", obs_url:"Address", copy:"Copy", obs_how:"In OBS: Sources → + → Browser, paste the address, width {} and height {}.",
+  system_sub:"Start-up and help.", autostart:"Start with Windows", stats:"Today's stats", keys:"keys", clicks:"clicks", best:"CPS record", cat:"cat",
+  help:"Help", help_text:"Ctrl+Alt+F11 – move widgets (drag, wheel = size, right-click = options)\nCtrl+Alt+F12 – quit\nCtrl+Alt+PgUp / PgDn – click volume\nCtrl+Alt+arrows – music",
+  copied:"Copied", saved:"Saved", hidden:"hidden", only_game:"only in the game",
+  theme:"Theme", theme_sub:"Look and font of all widgets. Every widget can also have its own (Widgets → Options).", gfont:"Font of all widgets",
+  custom_t:"Custom theme", c_bg:"Background", c_bga:"Background opacity", c_border:"Border", c_text:"Text", c_muted:"Labels", c_nums:"Numbers",
+  c_radius:"Roundness", b_color:"Color", b_glow:"Follow the effect", b_rainbow:"Rainbow", b_pastel:"Pastel", b_neon:"Neon", b_none:"None",
+  n_color:"Color", n_effect:"Follow the effect", n_rainbow:"Rainbow", n_pastel:"Pastel", wtheme:"Widget theme", wfont:"Widget font",
+  same_as_main:"Main one", fortnite:"Fortnite", fn_sub:"Match time and chest counter. Fortnite sends no data, so its log and the screen are read.",
+  fm_title:"Match time", chests:"Chests", fn_auto:"Recognize chests by itself (reads SEARCH by the crosshair)", fn_key:"Manual +1 button",
+  plus:"+1", minus:"−1", reset_match:"Reset match", reset_all:"Reset all", reset_fm:"Reset today's matches",
+  interval:"Remind every", drink_games:"Only while I play a game", drank:"I had a drink", fn_win:"Fortnite: windowed fullscreen"}
+}[LANG];
+const SECTIONS = [["sound","🔊"],["look","🎨"],["theme","🖌️"],["widgets","🧩"],["rl","🏆"],["fortnite","🪂"],["music","🎵"],["games","🎮"],["obs","📡"],["system","⚙️"]];
+let S = null, cur = location.hash.slice(1) || "sound", busy = false;
+const openDetails = new Set();          // "Options" sections stay open while you change things
+
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k === "cls") e.className = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+}
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), msg.length > 60 ? 6000 : 2200); }
+async function api(a, data) {
+  busy = true;
+  try {
+    const r = await fetch("/api/do", {method: "POST", headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify({a, ...(data || {})})});
+    const j = await r.json();
+    if (j.msg) toast(j.msg);
+    if (j.state) { S = j.state; render(); }
+    return j;
+  } catch (e) { toast("⚠ " + e); } finally { busy = false; }
+}
+const row = (label, ctrl, hint) => h("div", {cls: "row"}, h("div", {cls: "col"}, h("label", {}, label), hint ? h("span", {cls: "hint"}, hint) : null), ctrl);
+const toggle = (on, fn) => h("label", {cls: "sw"}, h("input", {type: "checkbox", checked: on, onchange: e => fn(e.target.checked)}), h("b"));
+const seg = (opts, val, fn) => h("div", {cls: "seg"}, opts.map(([v, t]) => h("button", {cls: v === val ? "on" : "", onclick: () => fn(v)}, t)));
+function slider(min, max, step, val, fmt, fn) {
+  const out = h("span", {cls: "hint", style: "min-width:48px;text-align:right"}, fmt(val));
+  return h("div", {style: "display:flex;align-items:center;gap:10px"},
+    h("input", {type: "range", min, max, step, value: val, oninput: e => out.textContent = fmt(+e.target.value), onchange: e => fn(+e.target.value)}), out);
+}
+const sel = (opts, val, fn, style) => h("select", {onchange: e => fn(e.target.value), style}, opts.map(o => Array.isArray(o) ? h("option", {value: o[0], selected: o[0] === val}, o[1]) : o));
+const btn = (t, fn, cls) => h("button", {cls: "btn " + (cls || ""), onclick: fn}, t);
+const card = (title, ...kids) => h("div", {cls: "card"}, title ? h("h3", {}, title) : null, ...kids);
+function fontSelect(value, fn, withMain) {
+  const F = S.fonts, opt = x => h("option", {value: x, selected: x === value, style: "font-family:'" + x + "'"}, x);
+  return h("select", {onchange: e => fn(e.target.value), style: "max-width:240px"},
+    withMain ? h("option", {value: "", selected: !value}, T.same_as_main) : null,
+    h("optgroup", {label: T.font_rec}, F.rec.map(opt)), h("optgroup", {label: T.font_hand}, F.hand.map(opt)),
+    h("optgroup", {label: T.font_all}, F.all.filter(x => !F.rec.includes(x) && !F.hand.includes(x)).map(opt)));
+}
+function swatch(t) {
+  const bg = t.bg ? `rgba(${t.bg.map(v => Math.round(v * 255)).join(",")},${Math.max(t.bg_a, .25)})` : "transparent";
+  const bd = t.border_css || "transparent";
+  return h("div", {style: `height:54px;border-radius:${8 + t.radius * 14}px;background:${bg};border:2px solid ${bd};display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;font-size:22px`},
+    h("span", {style: `background:${t.nums_css};-webkit-background-clip:text;color:transparent`}, "12:34"),
+    h("span", {style: `color:${t.text_css};font-size:12px;font-weight:600`}, "abc"));
+}
+function pickFile(accept, fn) {
+  const i = h("input", {type: "file", accept, style: "display:none"});
+  i.onchange = () => { const f = i.files[0]; if (!f) return; const r = new FileReader();
+    r.onload = () => fn(f.name, r.result.split(",")[1]); r.readAsDataURL(f); };
+  document.body.append(i); i.click(); setTimeout(() => i.remove(), 60000);
+}
+const pct = v => Math.round(v * 100) + " %";
+
+const SEC = {
+ sound() {
+  const s = S.sound;
+  const choices = s.sounds.map(x => [x.id, x.name]); if (s.custom_name) choices.push(["custom", T.custom + ": " + s.custom_name]);
+  return [h("h1", {}, T.sound), h("p", {cls: "sub"}, T.sound_sub), h("div", {cls: "grid"},
+   card(null,
+    row(T.sound_on, toggle(s.on, v => api("set", {k: "sound", v}))),
+    row(T.which, seg(choices, s.choice, v => api("sound_choice", {v}))),
+    h("div", {cls: "btns", style: "margin-top:8px"}, btn(T.test, () => api("test_sound")),
+      btn(T.upload, () => pickFile(".wav,.mp3,.m4a,.ogg,.flac,.wma,audio/*", (name, data) => api("upload_sound", {name, data}))))),
+   card(null,
+    row(T.volume, slider(0.1, 2, 0.05, s.volume, pct, v => api("set", {k: "volume", v})), T.vol_hint),
+    row(T.mouse, toggle(s.mouse, v => api("set", {k: "mouse_sound", v})))))];
+ },
+ look() {
+  const l = S.look;
+  return [h("h1", {}, T.look), h("p", {cls: "sub"}, T.look_sub), h("div", {cls: "grid"},
+   card(null,
+    row(T.show, toggle(S.visible, v => api("set", {k: "visible", v}))),
+    row(T.effect, sel(l.effects.map(e => [e.id, e.name]), l.effect, v => api("set", {k: "effect", v}))),
+    h("div", {cls: "row"}, h("label", {}, T.color), h("div", {cls: "sw-list"}, l.colors.map(c => h("div", {cls: "dot" + (c.id === l.color ? " on" : ""), title: c.name,
+       style: "background:" + (c.rgb || "conic-gradient(#ff4d6d,#ffb84d,#f9f871,#4dff9a,#4dc3ff,#9b6bff,#ff4d6d)"), onclick: () => api("set", {k: "color", v: c.id})})))),
+    row(T.opacity, slider(0.3, 1, 0.05, l.opacity, pct, v => api("set", {k: "opacity", v})))),
+   card(T.kstyle, seg(l.styles.map(x => [x.id, x.name]), l.key_style, v => api("key_style", {v}))))];
+ },
+ theme() {
+  const th = S.theme, ct = th.custom;
+  const presets = h("div", {cls: "grid", style: "grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"},
+    th.list.map(t => h("div", {cls: "card", style: "padding:10px;cursor:pointer;" + (t.id === th.current ? "outline:2px solid var(--acc)" : ""),
+      onclick: () => api("theme", {v: t.id})}, swatch(t), h("div", {style: "text-align:center;margin-top:6px;font-weight:600"}, t.name))));
+  const color = (k, val) => h("input", {type: "color", value: val, onchange: e => api("custom", {k, v: e.target.value})});
+  const isHex = v => /^#/.test(v || "");
+  return [h("h1", {}, T.theme), h("p", {cls: "sub"}, T.theme_sub), presets, h("div", {cls: "grid", style: "margin-top:14px"},
+   card(T.gfont, row(T.font, fontSelect(th.font, v => api("font", {v}))),
+     h("div", {cls: "fontpv", style: "font-family:'" + th.font + "'"}, "Keyboard Sound 12:34")),
+   card(T.custom_t,
+     row(T.c_bg, color("bg", ct.bg)),
+     row(T.c_bga, slider(0, 1, 0.05, ct.bg_a, pct, v => api("custom", {k: "bg_a", v}))),
+     row(T.c_border, h("div", {style: "display:flex;gap:8px;align-items:center"},
+       sel([["color", T.b_color], ["glow", T.b_glow], ["rainbow", T.b_rainbow], ["pastel", T.b_pastel], ["neon", T.b_neon], ["none", T.b_none]],
+         isHex(ct.border) ? "color" : (ct.border || "none"), v => api("custom", {k: "border", v: v === "color" ? "#7d9bff" : v})),
+       isHex(ct.border) ? color("border", ct.border) : null)),
+     row(T.c_text, color("text", ct.text)), row(T.c_muted, color("muted", ct.muted)),
+     row(T.c_nums, h("div", {style: "display:flex;gap:8px;align-items:center"},
+       sel([["color", T.n_color], ["effect", T.n_effect], ["rainbow", T.n_rainbow], ["pastel", T.n_pastel]],
+         isHex(ct.nums) ? "color" : ct.nums, v => api("custom", {k: "nums", v: v === "color" ? "#ffd166" : v})),
+       isHex(ct.nums) ? color("nums", ct.nums) : null)),
+     row(T.c_radius, slider(0, 1.2, 0.05, ct.radius, v => Math.round(v * 100) + " %", v => api("custom", {k: "radius", v})))))];
+ },
+ fortnite() {
+  const fm = S.widgets.find(w => w.kind === "fnmatch"), ch = S.widgets.find(w => w.kind === "chests"), dr = S.widgets.find(w => w.kind === "drink");
+  const cmd = (w, c) => api("wcmd", {id: w.id, cmd: c});
+  return [h("h1", {}, T.fortnite), h("p", {cls: "sub"}, T.fn_sub), h("div", {cls: "grid"},
+   fm ? card(T.fm_title, row(T.show, toggle(fm.visible, v => api("w", {id: fm.id, k: "visible", v}))),
+     h("div", {cls: "btns"}, btn(T.reset_fm, () => cmd(fm, 890)))) : null,
+   ch ? card(T.chests, row(T.show, toggle(ch.visible, v => api("w", {id: ch.id, k: "visible", v}))),
+     ch.ocr ? row(T.fn_auto, toggle(ch.auto, v => api("w", {id: ch.id, k: "auto", v}))) : null,
+     row(T.fn_key, h("div", {style: "display:flex;gap:8px;align-items:center"}, h("span", {cls: "kbd"}, ch.prompt ? T.press_now : ch.key), btn(T.change, () => cmd(ch, 852)))),
+     h("div", {cls: "btns", style: "margin-top:8px"}, btn(T.plus, () => cmd(ch, 850)), btn(T.minus, () => cmd(ch, 851)), btn(T.reset_match, () => cmd(ch, 853)), btn(T.reset_all, () => cmd(ch, 854), "bad"))) : null,
+   card("Fortnite", row(T.fn_win, toggle(S.games.fn_windowed, () => api("fn_window"))))) ];
+ },
+ widgets() {
+  const cards = S.widgets.map(w => {
+   const set = (k, v) => api("w", {id: w.id, k, v}), cmd = c => api("wcmd", {id: w.id, cmd: c});
+   const opts = [];
+   if (w.kind === "keyboard" || w.kind === "mouse") opts.push(row(T.kstyle, seg(S.look.styles.map(x => [x.id, x.name]), w.style, v => set("style", v))));
+   if (w.kind === "keyboard") { opts.push(row(T.numpad, toggle(w.numpad, v => set("numpad", v)))); opts.push(row(T.bg, toggle(w.background, v => set("background", v)))); }
+   if (w.kind === "cat") { opts.push(row(T.fur, seg(S.furs.map(f => [f.id, f.name]), w.fur, v => set("fur", v)))); opts.push(h("div", {cls: "btns"}, btn(T.reset_count, () => cmd(729)))); }
+   if (w.kind === "stats") opts.push(h("div", {cls: "btns"}, btn(T.reset_today, () => cmd(710)), btn(T.reset_best, () => cmd(711))));
+   if (w.kind === "session") opts.push(h("div", {cls: "btns"}, btn(T.reset, () => cmd(770)), btn(T.pause, () => cmd(771))));
+   if (w.kind === "rocket") opts.push(h("div", {cls: "btns"}, btn(T.reset_wins, () => cmd(762))));
+   if (w.kind === "dash") opts.push(h("div", {cls: "btns"}, btn(T.reset_jumps, () => cmd(780))));
+   if (w.kind === "clock") {
+    opts.push(row(T.analog, toggle(w.analog, v => set("analog", v)))); opts.push(row(T.seconds, toggle(w.seconds, v => set("seconds", v))));
+    opts.push(row(T.timer, h("div", {cls: "seg"}, [5, 10, 15, 20, 30, 45, 60, 90].map(m => h("button", {cls: w.timer === m ? "on" : "", onclick: () => set("timer", m)}, m + "")),
+      w.timer ? h("button", {onclick: () => set("timer", 0)}, T.cancel) : null)));
+   }
+   if (w.kind === "text") {
+    const ta = h("textarea", {}, w.text || "");
+    opts.push(ta, h("div", {cls: "btns"}, btn(T.save, () => set("text", ta.value), "pri")));
+    opts.push(row(T.tcolor, sel(w.colors.map(c => [c.id, c.name]), w.color, v => set("color", v))));
+    opts.push(row(T.bold, toggle(w.bold, v => set("bold", v)))); opts.push(row(T.bg, toggle(w.background, v => set("background", v))));
+   }
+   if (w.kind === "image") opts.push(h("div", {cls: "btns"}, btn(T.change_img, () => pickFile("image/*", (name, data) => api("image", {id: w.id, name, data})))));
+   if (w.kind === "drink") {
+    opts.push(row(T.interval, seg([15, 20, 30, 45, 60, 90].map(m => [m, m + " min"]), w.interval, v => set("interval", v))));
+    opts.push(row(T.drink_games, toggle(w.only_games, v => set("only_games", v))));
+    opts.push(h("div", {cls: "btns"}, btn(T.drank, () => cmd(880), "pri"), btn(T.reset_today, () => cmd(888))));
+   }
+   if (w.kind === "fnmatch") opts.push(h("div", {cls: "btns"}, btn(T.reset_fm, () => cmd(890))));
+   if (w.kind === "chests") opts.push(h("div", {cls: "btns"}, btn(T.plus, () => cmd(850)), btn(T.minus, () => cmd(851)), btn(T.reset_match, () => cmd(853))));
+   if (w.themeable) {
+    opts.push(row(T.wtheme, sel([["", T.same_as_main], ...S.theme.list.map(t => [t.id, t.name])], w.theme || "", v => set("theme", v))));
+    opts.push(row(T.wfont, fontSelect(w.wfont || "", v => set("wfont", v), true)));
+   }
+   return card(null, h("div", {cls: "wcard"},
+    h("div", {cls: "wtitle"}, h("b", {}, w.label), h("span", {style: "display:flex;gap:8px;align-items:center"}, w.game ? h("span", {cls: "tag"}, T.only_game) : null, toggle(w.visible, v => set("visible", v)))),
+    row(T.size, slider(10, 120, 2, w.size, v => v, v => set("size", v))),
+    opts.length ? h("details", {"data-id": w.id, open: openDetails.has(w.id), ontoggle: e => e.target.open ? openDetails.add(w.id) : openDetails.delete(w.id)}, h("summary", {}, T.options), ...opts) : null,
+    h("div", {cls: "btns", style: "margin-top:8px"}, btn(T.home, () => api("home", {id: w.id})), w.removable ? btn(T.remove, () => api("remove", {id: w.id}), "bad") : null)));
+  });
+  const corners = S.corners.map(c => [c.id, c.name]);
+  return [h("h1", {}, T.widgets), h("p", {cls: "sub"}, T.w_sub),
+   h("div", {cls: "btns", style: "margin-bottom:14px"}, btn(T.add_text, () => { const t = prompt(T.text, "GG!"); if (t) api("add_text", {text: t}); }, "pri"),
+     btn(T.add_image, () => pickFile("image/*", (name, data) => api("add_image", {name, data})), "pri"), btn(T.home_all, () => api("home_all")),
+     sel([[ "", T.arrange + "…"], ...corners], "", v => v && api("arrange", {v}))),
+   h("div", {cls: "grid"}, cards)];
+ },
+ rl() {
+  const r = S.rl, f = r.font;
+  const fontSel = fontSelect(f, v => api("rl", {k: "font", v}));
+  return [h("h1", {}, T.rl), h("p", {cls: "sub"}, T.rl_sub), h("div", {cls: "grid"},
+   card(null,
+    row(T.rl_look, seg(r.modes.map(m => [m.id, m.name]), r.mode, v => api("rl", {k: "mode", v}))),
+    row(T.font, fontSel), h("div", {cls: "fontpv", style: "font-family:'" + f + "';font-weight:" + (r.bold ? 700 : 400)}, "2 : 1   4:37   67"),
+    row(T.bold, toggle(r.bold, v => api("rl", {k: "bold", v}))),
+    row(T.names, toggle(r.names, v => api("rl", {k: "names", v}))),
+    row(T.rl_opacity, slider(0.3, 1, 0.05, r.opacity, pct, v => api("rl", {k: "opacity", v})))),
+   card(T.rl_game,
+    row(T.live, toggle(r.live_on, () => api("rl_live")), r.rate > 0 && r.rate < 10 ? T.now_rate.replace("{}", r.rate) : T.live_hint),
+    row(T.border, toggle(r.borderless, () => api("rl_border")))))];
+ },
+ music() {
+  const m = S.music;
+  if (!m.available) return [h("h1", {}, T.music), h("p", {cls: "sub"}, T.no_media)];
+  return [h("h1", {}, T.music), h("p", {cls: "sub"}, T.music_sub), h("div", {cls: "grid"},
+   card(T.shortcuts, m.binds.map(b => row(b.label, h("div", {style: "display:flex;gap:8px;align-items:center"},
+      m.capturing === b.act ? h("span", {cls: "hint"}, T.press_now) : h("span", {cls: "kbd"}, b.text), btn(T.change, () => api("bind", {act: b.act}))))),
+     h("div", {cls: "btns", style: "margin-top:8px"}, btn(T.reset_binds, () => api("bind_reset")))),
+   card(null,
+    row(T.ads, toggle(m.mute_ads, v => api("set", {k: "mute_ads", v}))),
+    row(T.seek, seg([[5, "5 s"], [10, "10 s"], [15, "15 s"], [30, "30 s"]], m.seek_step, v => api("set", {k: "seek_step", v}))),
+    row(T.vstep, seg([[2, "2 %"], [5, "5 %"], [10, "10 %"]], m.music_step, v => api("set", {k: "music_step", v})))))];
+ },
+ games() {
+  const g = S.games;
+  return [h("h1", {}, T.games), h("p", {cls: "sub"}, T.games_sub), h("div", {cls: "grid"},
+   card("Rocket League", row(T.border, toggle(S.rl.borderless, () => api("rl_border"))), row(T.live, toggle(S.rl.live_on, () => api("rl_live")), T.live_hint)),
+   card("Fortnite", row(T.fn_win, toggle(g.fn_windowed, () => api("fn_window")))))];
+ },
+ obs() {
+  const o = S.obs;
+  return [h("h1", {}, T.obs), h("p", {cls: "sub"}, T.obs_sub), h("div", {cls: "grid"},
+   card(null, row(T.obs_on, toggle(o.on, v => api("obs", {v}))),
+    o.on ? h("div", {}, row(T.obs_url, h("div", {style: "display:flex;gap:8px"}, h("span", {cls: "kbd"}, o.url),
+      btn(T.copy, () => { navigator.clipboard.writeText(o.url).then(() => toast(T.copied)); }))),
+      h("p", {cls: "hint"}, T.obs_how.replace("{}", o.w).replace("{}", o.h))) : null))];
+ },
+ system() {
+  const st = S.stats;
+  return [h("h1", {}, T.system), h("p", {cls: "sub"}, T.system_sub), h("div", {cls: "grid"},
+   card(null, S.frozen ? row(T.autostart, toggle(S.autostart, v => api("autostart", {v}))) : null,
+     h("p", {style: "white-space:pre-line", cls: "muted"}, T.help_text)),
+   card(T.stats, h("p", {}, `${st.keys} ${T.keys} · ${st.clicks} ${T.clicks} · ${T.best} ${st.best_cps} · ${T.cat} ${st.cat}`)))];
+ }
+};
+function render() {
+  if (!S) return;
+  const nav = document.getElementById("nav"); nav.innerHTML = "";
+  for (const [id, icon] of SECTIONS) nav.append(h("button", {cls: id === cur ? "on" : "", onclick: () => { cur = id; location.hash = id; render(); }}, h("span", {}, icon), h("em", {}, T[id])));
+  const main = document.getElementById("main"); const y = main.scrollTop; main.innerHTML = "";
+  main.append(...SEC[cur]());
+  main.scrollTop = y;
+  const eb = document.getElementById("editBtn"); eb.textContent = S.editing ? T.edit_on : T.edit_off; eb.className = "btn " + (S.editing ? "pri" : "");
+  document.getElementById("quitBtn").textContent = T.quit;
+}
+document.getElementById("editBtn").onclick = () => api("edit");
+document.getElementById("quitBtn").onclick = () => { if (confirm(T.quit_q)) api("quit").then(() => window.close()); };
+api("state");
+setInterval(() => {                     // keep in sync with changes made elsewhere (tray menu, hotkeys)
+  const a = document.activeElement;
+  if (!busy && !(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName))) api("state");
+}, 2500);
+</script></body></html>
+'''
+
+
+def browser_for_app_window():
+    """Edge (on every Windows 10/11) or Chrome, to show the main menu as its own app window."""
+    candidates = []
+    for root in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+        for exe in ("msedge.exe", "chrome.exe"):
+            try:
+                with winreg.OpenKey(root, rf"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{exe}") as k:
+                    candidates.append(winreg.QueryValue(k, None))
+            except OSError:
+                pass
+    for base in (os.environ.get("ProgramFiles(x86)", ""), os.environ.get("ProgramFiles", ""),
+                 os.environ.get("LOCALAPPDATA", "")):
+        candidates += [os.path.join(base, "Microsoft", "Edge", "Application", "msedge.exe"),
+                       os.path.join(base, "Google", "Chrome", "Application", "chrome.exe")]
+    return next((c for c in candidates if c and os.path.exists(c)), None)
+
+
+def open_main_menu():
+    if not web_start():
+        user32.MessageBoxW(None, T("obs_fail").format(OBS_PORT), APP_NAME, 0x30)
+        return
+    url = f"http://127.0.0.1:{web_port}/menu?t={WEB_TOKEN}"
+    exe = browser_for_app_window()
+    try:
+        if exe:
+            import subprocess
+            subprocess.Popen([exe, f"--app={url}", "--window-size=1100,800", "--new-window"],
+                             creationflags=0x08000000)
+            return
+    except OSError:
+        pass
+    os.startfile(url)
+
+
+_fonts_cache = []
+
+
+def installed_fonts():
+    """Names of the fonts installed on this PC (for the font list in the main menu)."""
+    if _fonts_cache:
+        return _fonts_cache
+    names = set()
+    proc_type = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.POINTER(LOGFONTW), ctypes.c_void_p, wintypes.DWORD,
+                                   wintypes.LPARAM)
+
+    def found(lf, tm, kind, lparam):
+        name = lf.contents.lfFaceName
+        if name and not name.startswith("@") and kind & 4:            # TrueType / OpenType only (GDI+ can draw them)
+            names.add(name)
+        return 1
+    cb = proc_type(found)
+    lf = LOGFONTW()
+    lf.lfCharSet = 1
+    dc = user32.GetDC(None)
+    gdi32.EnumFontFamiliesExW(dc, ctypes.byref(lf), cb, 0, 0)
+    user32.ReleaseDC(None, dc)
+    _fonts_cache.extend(sorted(names, key=str.lower))
+    return _fonts_cache
+
+
+def set_clipboard(text):
+    data = ctypes.create_unicode_buffer(text)
+    size = ctypes.sizeof(data)
+    kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
+    kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+    user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+    h = kernel32.GlobalAlloc(0x2, size)
+    ptr = kernel32.GlobalLock(h)
+    ctypes.memmove(ptr, data, size)
+    kernel32.GlobalUnlock(h)
+    if user32.OpenClipboard(None):
+        user32.EmptyClipboard()
+        user32.SetClipboardData(13, h)                 # CF_UNICODETEXT
+        user32.CloseClipboard()
 
 
 # ---------------------------------------------------------------- shortcuts
@@ -1964,6 +2775,11 @@ for _name, _args in (
     ("GdipImageSelectActiveFrame", [_vp, _vp, ctypes.c_uint]),
     ("GdipGetPropertyItemSize", [_vp, ctypes.c_uint, _vp]),
     ("GdipGetPropertyItem", [_vp, ctypes.c_uint, ctypes.c_uint, _vp]),
+    ("GdipSaveImageToStream", [_vp, _vp, _vp, _vp]),
+    ("GdipCreateImageAttributes", [_vp]),
+    ("GdipSetImageAttributesColorKeys", [_vp, ctypes.c_int, ctypes.c_int, wintypes.DWORD, wintypes.DWORD]),
+    ("GdipDisposeImageAttributes", [_vp]),
+    ("GdipDrawImageRectRectI", [_vp, _vp] + [ctypes.c_int] * 8 + [ctypes.c_int, _vp, _vp, _vp]),
 ):
     getattr(gdiplus, _name).argtypes = _args
 
@@ -2035,6 +2851,16 @@ class Canvas:
         gdiplus.GdipCreatePath(0, ctypes.byref(self.path))
         gdiplus.GdipCreateStringFormat(0, 0, ctypes.byref(self.fmt))
         self.families = {}
+        self.font = "Segoe UI"                 # font used when a text call names none (the widget's theme font)
+        self._theme = None
+
+    @property
+    def theme(self):
+        return self._theme or default_theme()
+
+    @theme.setter
+    def theme(self, value):
+        self._theme = value
 
     def family(self, name):
         if name not in self.families:
@@ -2210,10 +3036,11 @@ class Canvas:
             gdiplus.GdipAddPathString(self.path, text, -1, self.family(font), 0, size, ctypes.byref(rect), self.fmt)
 
     def text(self, text, x, y, w, h, size, fill, bold=True, align=1, valign=1, outline=None, outline_w=0.0,
-             font="Segoe UI"):
+             font=None):
         """fill = one ARGB color or a list of ARGB colors (horizontal gradient across the box)."""
         if not text:
             return
+        font = font or self.font
         self._text_path(text, x, y, w, h, size, bold, align, valign, font)
         if outline is not None and outline_w > 0:
             pen = self._pen(outline, outline_w)
@@ -2226,8 +3053,8 @@ class Canvas:
         else:
             gdiplus.GdipFillPath(self.g, self._fill(fill), self.path)
 
-    def measure(self, text, size, bold=True, font="Segoe UI"):
-        self._text_path(text or " ", 0, 0, 100000, 100000, size, bold, 0, 0, font)
+    def measure(self, text, size, bold=True, font=None):
+        self._text_path(text or " ", 0, 0, 100000, 100000, size, bold, 0, 0, font or self.font)
         r = RectF()
         gdiplus.GdipGetPathWorldBounds(self.path, ctypes.byref(r), None, None)
         return r.X, r.Y, r.Width, r.Height
@@ -2538,6 +3365,8 @@ class ArgbWidget(Widget):
 
     def redraw(self):
         c = self.canvas
+        th = self.app.theme_for(self)
+        c.theme, c.font = th, th.font
         c.clear()
         if self.editing:
             c.round_rect(1, 1, self.w - 2, self.h - 2, 8 * self.app.dpi, fill=argb((0.05, 0.05, 0.1), 0.45))
@@ -2613,7 +3442,9 @@ class KeysWidget(GdiWidget):
 
         for f in self.fonts:
             gdi32.DeleteObject(f)
-        mk = lambda px: gdi32.CreateFontW(-max(7, int(px)), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, 4, 0, "Segoe UI Semibold")
+        face = self.app.theme_for(self).font
+        face = "Segoe UI Semibold" if face == "Segoe UI" else face
+        mk = lambda px: gdi32.CreateFontW(-max(7, int(px)), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, 4, 0, face)
         self.fonts = [mk(u * 0.42), mk(u * 0.27)]
         for dc, bmp in self.bitmaps:
             gdi32.DeleteObject(bmp)
@@ -2713,8 +3544,10 @@ class KeysWidget(GdiWidget):
                 gdi32.SetDCBrushColor(dc, cref(plate[0]))
                 gdi32.SetDCPenColor(dc, cref(plate[1]))
                 gdi32.Polygon(dc, *self.plate)
+            th = self.app.theme_for(self)
+            acc = th.accent(self.app, 0.0)
             for key in self.keys:
-                key["style"] = style_colors(self.style, key)
+                key["style"] = style_colors(self.style, key, th, acc)
                 fill, outline, text = key["style"][:3]
                 if key.get("body"):
                     gdi32.SetDCBrushColor(dc, cref(fill))
@@ -2904,8 +3737,14 @@ class PlayerWidget(GdiWidget):
         for f in self.fonts:
             gdi32.DeleteObject(f)
         mk = lambda px, weight, face: gdi32.CreateFontW(-max(7, int(px)), 0, 0, 0, weight, 0, 0, 0, 1, 0, 0, 4, 0, face)
-        self.fonts = [mk(u * 0.42, 700, "Segoe UI"), mk(u * 0.34, 400, "Segoe UI"),
-                      mk(u * 0.3, 600, "Segoe UI"), mk(u * 0.42, 400, "Segoe MDL2 Assets"),
+        th = self.app.theme_for(self)
+        face = th.font
+        self.BG = th.bg if th.bg is not None and th.bg_a >= 0.3 else PlayerWidget.BG
+        dark_bg = sum(self.BG) / 3 < 0.5
+        self.FG = th.text_rgb if dark_bg == th.dark else ((0.95, 0.95, 0.98) if dark_bg else (0.12, 0.12, 0.18))
+        self.MUTED = th.muted_rgb if dark_bg == th.dark else mix(self.FG, self.BG, 0.35)
+        self.fonts = [mk(u * 0.42, 700, face), mk(u * 0.34, 400, face),
+                      mk(u * 0.3, 600, face), mk(u * 0.42, 400, "Segoe MDL2 Assets"),
                       mk(u * 0.8, 400, "Segoe UI Symbol"), mk(u * 0.34, 400, "Segoe MDL2 Assets")]
         self.make_buffer()
         self.plate = self.poly([(0, 0), (self.w - 1, 0), (self.w - 1, self.h - 1), (0, self.h - 1)], 0.35 * u)
@@ -2981,8 +3820,8 @@ class PlayerWidget(GdiWidget):
         if self.cover:
             self.cover.draw(dc, pad, pad, art)
         else:
-            gdi32.SetDCBrushColor(dc, cref((0.12, 0.12, 0.16)))
-            gdi32.SetDCPenColor(dc, cref((0.12, 0.12, 0.16)))
+            gdi32.SetDCBrushColor(dc, cref(mix(self.BG, self.FG, 0.07)))
+            gdi32.SetDCPenColor(dc, cref(mix(self.BG, self.FG, 0.07)))
             gdi32.Polygon(dc, *self.poly([(pad, pad), (pad + art, pad), (pad + art, pad + art), (pad, pad + art)],
                                          0.2 * u))
             gdi32.SelectObject(dc, self.fonts[4])
@@ -2992,16 +3831,16 @@ class PlayerWidget(GdiWidget):
         if self.prompt or not st:
             if self.prompt:
                 gdi32.SelectObject(dc, self.fonts[0])
-                gdi32.SetTextColor(dc, 0xFFFFFF)
+                gdi32.SetTextColor(dc, cref(self.FG))
                 user32.DrawTextW(dc, self.prompt, -1, ctypes.byref(self.prompt_rect), 0x10 | 0x800)
             if self.editing:
                 self.draw_edit_frame(dc)
             self.present()
             return
         ellipsis = 0x20 | 0x4 | 0x800 | 0x8000
-        muted_text = cref((0.66, 0.66, 0.74))
+        muted_text = cref(self.MUTED)
         gdi32.SelectObject(dc, self.fonts[0])
-        gdi32.SetTextColor(dc, 0xFFFFFF)
+        gdi32.SetTextColor(dc, cref(self.FG))
         user32.DrawTextW(dc, st["title"] or T("nothing_playing"), -1, ctypes.byref(self.title_rect), ellipsis)
         gdi32.SelectObject(dc, self.fonts[1])
         if st.get("ad"):
@@ -3042,11 +3881,11 @@ class PlayerWidget(GdiWidget):
             gdi32.Ellipse(dc, cx - r, cy - r, cx + r, cy + r)
             glyph = {"prev": "", "next": "", "play": "" if st["playing"] else ""}[name]
             gdi32.SelectObject(dc, self.fonts[3])
-            gdi32.SetTextColor(dc, cref(INK if name == "play" else (0.92, 0.92, 0.96)))
+            gdi32.SetTextColor(dc, cref(INK if name == "play" else self.FG))
             user32.DrawTextW(dc, glyph, -1, ctypes.byref(wintypes.RECT(cx - r, cy - r, cx + r, cy + r)), 0x1 | 0x4 | 0x20)
         x, y, w, h = self.bar
-        gdi32.SetDCBrushColor(dc, cref((0.17, 0.17, 0.22)))
-        gdi32.SetDCPenColor(dc, cref((0.17, 0.17, 0.22)))
+        gdi32.SetDCBrushColor(dc, cref(mix(self.BG, self.FG, 0.12)))
+        gdi32.SetDCPenColor(dc, cref(mix(self.BG, self.FG, 0.12)))
         gdi32.Polygon(dc, *self.poly([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], h / 2))
         frac = min(1.0, pos / end) if end > 0 else 0.0
         filled = int(w * frac)
@@ -3130,7 +3969,8 @@ class Stats:
     def check_day(self):
         today = datetime.now().strftime("%Y-%m-%d")
         if self.data.get("date") != today:
-            self.data.update(date=today, keys=0, clicks=0, rl_w=0, rl_l=0, gd_jumps=0, fn_today=0)
+            self.data.update(date=today, keys=0, clicks=0, rl_w=0, rl_l=0, gd_jumps=0, fn_today=0,
+                             fnm_count=0, fnm_time=0, fnm_best=0, drinks=0)
 
     def add(self, kid):
         now = time.monotonic()
@@ -3185,11 +4025,10 @@ class StatsWidget(ArgbWidget):
         u, app, st = self.u, self.app, self.app.stats
         cps, apm = st.cps(now), st.apm(now)
         self.last = (cps, apm, st.data["keys"], st.data["clicks"], st.data.get("best_cps", 0))
-        c.round_rect(0.5, 0.5, self.w - 1, self.h - 1, 0.45 * u, fill=argb((0.05, 0.05, 0.07), 0.82),
-                     stroke=argb(mix((0.05, 0.05, 0.07), app.glow_color(0.1, now), 0.6)), width=max(1, u / 20))
-        colors = [argb(app.glow_color(i / 4, now)) for i in range(5)]
+        panel(c, self.w, self.h, u, app, now)
+        colors = c.theme.nums(app, now)
         half = self.w / 2
-        muted = argb((0.62, 0.62, 0.7))
+        muted = c.theme.muted
         for i, (label, value, sub) in enumerate((("CPS", cps, T("stats_best").format(st.data.get("best_cps", 0))),
                                                  ("APM", apm, T("stats_apm_sub")))):
             x = i * half
@@ -3197,14 +4036,14 @@ class StatsWidget(ArgbWidget):
             c.text(str(value), x, 0.62 * u, half, 1.25 * u, 1.05 * u, colors, outline=argb((0, 0, 0), 0.6),
                    outline_w=u / 10)
             c.text(sub, x, 1.85 * u, half, 0.45 * u, 0.3 * u, muted, bold=False)
-        c.line(0.5 * u, 2.45 * u, self.w - 0.5 * u, 2.45 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+        c.line(0.5 * u, 2.45 * u, self.w - 0.5 * u, 2.45 * u, c.theme.line, max(1, u / 25))
         if now < self.volume_until:               # just changed the click volume with Ctrl+Alt+PgUp / PgDn
             c.text(f"{T('click_volume').split(chr(9))[0]}: {int(round(self.volume_shown * 100))} %", 0, 2.5 * u,
                    self.w, 0.65 * u, 0.33 * u, argb(app.glow_color(0.3, now)), bold=True)
             return
         c.text(T("stats_today").format(f"{st.data['keys']:,}".replace(",", " "),
                                        f"{st.data['clicks']:,}".replace(",", " ")),
-               0, 2.5 * u, self.w, 0.65 * u, 0.33 * u, argb((0.85, 0.85, 0.9)), bold=False)
+               0, 2.5 * u, self.w, 0.65 * u, 0.33 * u, c.theme.text, bold=False)
 
     def tick(self, now):
         if self.shown and now - self.last_draw > 0.25:
@@ -3319,7 +4158,7 @@ class CatWidget(ArgbWidget):
 
         # counter
         count = f"{app.stats.data.get('cat', 0):,}".replace(",", " ")
-        colors = [argb(app.glow_color(i / 4, now)) for i in range(5)]
+        colors = c.theme.nums(app, now)
         c.text(count, 0, 0, self.w, 1.05 * u, 0.8 * u, colors, outline=argb((0, 0, 0), 0.75), outline_w=u / 8)
 
         # body and head
@@ -3402,10 +4241,126 @@ def clock_text(seconds, hours=True):
     return f"{m}:{sec:02d}"
 
 
+
+# ---------------------------------------------------------------- themes (look + font of all widgets)
+def hex_to_rgb(text, default=(1.0, 1.0, 1.0)):
+    try:
+        v = int(str(text).strip().lstrip("#")[:6], 16)
+        return ((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255
+    except (TypeError, ValueError):
+        return default
+
+
+THEMES = {
+    # bg / bg_a: card color and opacity (None = no card); border: color, "glow" (follows the effect), "rainbow",
+    # "pastel", "neon" or None; nums: big numbers - "effect", "rainbow", "pastel" or a list of colors
+    "classic": {"bg": (0.05, 0.05, 0.07), "bg_a": 0.82, "border": "glow", "text": (0.85, 0.85, 0.9),
+                "muted": (0.62, 0.62, 0.7), "nums": "effect", "radius": 0.45},
+    "pastel": {"bg": (0.99, 0.97, 1.0), "bg_a": 0.93, "border": "pastel", "text": (0.22, 0.2, 0.33),
+               "muted": (0.47, 0.44, 0.58), "nums": "pastel", "radius": 0.6},
+    "black": {"bg": (0.0, 0.0, 0.0), "bg_a": 0.95, "border": "rainbow", "text": (0.9, 0.9, 0.93),
+              "muted": (0.6, 0.6, 0.66), "nums": "rainbow", "radius": 0.35},
+    "neon": {"bg": (0.03, 0.02, 0.09), "bg_a": 0.9, "border": "neon", "text": (0.86, 0.95, 1.0),
+             "muted": (0.56, 0.62, 0.9), "nums": [(0.2, 1.0, 1.0), (1.0, 0.25, 0.9)], "radius": 0.25},
+    "glass": {"bg": (1.0, 1.0, 1.0), "bg_a": 0.14, "border": (1.0, 1.0, 1.0), "text": (1.0, 1.0, 1.0),
+              "muted": (0.86, 0.86, 0.92), "nums": [(1.0, 1.0, 1.0), (0.85, 0.9, 1.0)], "radius": 0.55},
+    "minimal": {"bg": None, "bg_a": 0.0, "border": None, "text": (1.0, 1.0, 1.0), "muted": (0.88, 0.88, 0.92),
+                "nums": "effect", "radius": 0.0},
+}
+THEME_IDS = list(THEMES) + ["custom"]
+
+
+class Theme:
+    """Colors, card and font one widget is drawn with."""
+
+    def __init__(self, spec, font):
+        self.spec, self.font = spec, font
+        self.bg, self.bg_a = spec.get("bg"), float(spec.get("bg_a", 0.85))
+        self.border = spec.get("border")
+        self.text_rgb, self.muted_rgb = spec["text"], spec["muted"]
+        self.text, self.muted = argb(spec["text"]), argb(spec["muted"])
+        self.radius = float(spec.get("radius", 0.45))
+        light_text = sum(spec["text"]) / 3 > 0.55
+        self.outline = argb((0, 0, 0), 0.85 if self.bg is None else 0.6) if light_text else argb(WHITE, 0.8)
+        self.line = argb(spec["text"], 0.1)
+
+    @property
+    def dark(self):
+        """True when the card is dark (text is light)."""
+        return sum(self.text_rgb) / 3 > 0.55
+
+    def accent(self, app, now):
+        b = self.border
+        if isinstance(b, tuple):
+            return b
+        n = self.spec.get("nums")
+        if isinstance(n, list):
+            return n[0]
+        return app.glow_color(0.1, now)
+
+    def nums(self, app, now):
+        n = self.spec.get("nums", "effect")
+        if n == "rainbow":
+            return [argb(colorsys.hsv_to_rgb((i / 4 * 0.6 - now * 0.12) % 1.0, 0.9, 1.0)) for i in range(5)]
+        if n == "pastel":
+            return [argb(colorsys.hsv_to_rgb((i / 4 * 0.6 - now * 0.05) % 1.0, 0.55, 0.85)) for i in range(5)]
+        if isinstance(n, list):
+            return [argb(col) for col in n] if len(n) > 1 else argb(n[0])
+        if isinstance(n, tuple):
+            return argb(n)
+        return [argb(app.glow_color(i / 4, now)) for i in range(5)]
+
+    def panel(self, c, w, h, u, app, now):
+        if self.bg is None:
+            return
+        r = self.radius * u
+        c.round_rect(0.5, 0.5, w - 1, h - 1, r, fill=argb(self.bg, self.bg_a))
+        b, width = self.border, max(1.0, u / 20)
+        if b is None:
+            return
+        if b == "glow":
+            c.round_rect(0.5, 0.5, w - 1, h - 1, r, stroke=argb(mix(self.bg, app.glow_color(0.1, now), 0.6)), width=width)
+        elif b in ("rainbow", "pastel", "neon"):
+            if b == "neon":
+                cols = [argb((0.2, 1.0, 1.0)), argb((1.0, 0.25, 0.9))]
+                for k in range(3):
+                    c.gradient_rect(0.5 + k, 0.5 + k, w - 1 - 2 * k, h - 1 - 2 * k, max(0.5, r - k),
+                                    stroke=[argb((0.2, 1.0, 1.0), 0.25 / (k + 1)), argb((1.0, 0.25, 0.9), 0.25 / (k + 1))],
+                                    width=width * (3 - k))
+            else:
+                sat = 0.4 if b == "pastel" else 1.0
+                cols = [argb(colorsys.hsv_to_rgb((i / 6 - now * 0.08) % 1.0, sat, 1.0)) for i in range(7)]
+            c.gradient_rect(0.5, 0.5, w - 1, h - 1, r, stroke=cols, width=width * (1.6 if b != "glow" else 1))
+        else:
+            c.round_rect(0.5, 0.5, w - 1, h - 1, r, stroke=argb(b, 0.45 if self.bg_a < 0.3 else 0.9), width=width)
+
+
+def theme_spec(name, cfg):
+    if name == "custom":
+        ct = {**DEFAULTS["custom_theme"], **(cfg.get("custom_theme") or {})}
+        border = ct.get("border")
+        border = border if border in ("glow", "rainbow", "pastel", "neon") else (
+            None if border in (None, "", "none") else hex_to_rgb(border, ACCENT))
+        nums = ct.get("nums")
+        nums = nums if nums in ("effect", "rainbow", "pastel") else [hex_to_rgb(nums, ACCENT)]
+        return {"bg": hex_to_rgb(ct.get("bg"), (0.07, 0.07, 0.1)), "bg_a": max(0.0, min(1.0, float(ct.get("bg_a", 0.85)))),
+                "border": border, "text": hex_to_rgb(ct.get("text"), WHITE), "muted": hex_to_rgb(ct.get("muted"), (0.6, 0.6, 0.7)),
+                "nums": nums, "radius": max(0.0, min(1.2, float(ct.get("radius", 0.45))))}
+    return THEMES.get(name, THEMES["classic"])
+
+
+_default_theme = []
+
+
+def default_theme():
+    if not _default_theme:
+        _default_theme.append(Theme(THEMES["classic"], "Segoe UI"))
+    return _default_theme[0]
+
+
 def panel(c, w, h, u, app, now):
-    """The dark rounded card most widgets sit on."""
-    c.round_rect(0.5, 0.5, w - 1, h - 1, 0.45 * u, fill=argb((0.05, 0.05, 0.07), 0.82),
-                 stroke=argb(mix((0.05, 0.05, 0.07), app.glow_color(0.1, now), 0.6)), width=max(1, u / 20))
+    """The card most widgets sit on, in the widget's theme."""
+    c.theme.panel(c, w, h, u, app, now)
 
 
 class SessionWidget(ArgbWidget):
@@ -3427,14 +4382,14 @@ class SessionWidget(ArgbWidget):
         self.last_draw = now
         u, app = self.u, self.app
         panel(c, self.w, self.h, u, app, now)
-        muted = argb((0.62, 0.62, 0.7))
+        muted = c.theme.muted
         c.text(T("session_label"), 0.45 * u, 0.2 * u, 3 * u, 0.5 * u, 0.3 * u, muted, align=0)
         c.text(T("session_now").format(datetime.now().strftime("%H:%M")), 0, 0.2 * u, self.w - 0.45 * u, 0.5 * u,
                0.3 * u, muted, bold=False, align=2)
         paused = app.session_paused_at is not None
-        colors = [argb(app.glow_color(i / 4, now)) for i in range(5)]
+        colors = c.theme.nums(app, now)
         c.text(clock_text(app.session_seconds(now)), 0, 0.6 * u, self.w, 1.4 * u, 1.05 * u,
-               argb((0.6, 0.6, 0.65)) if paused else colors, outline=argb((0, 0, 0), 0.6), outline_w=u / 10)
+               argb((0.6, 0.6, 0.65)) if paused else colors, outline=c.theme.outline, outline_w=u / 10)
         game = app.current_game()
         if game:
             name, since = game
@@ -3442,8 +4397,8 @@ class SessionWidget(ArgbWidget):
         else:
             st = app.stats.data
             line = T("stats_today").format(f"{st['keys']:,}".replace(",", " "), f"{st['clicks']:,}".replace(",", " "))
-        c.line(0.5 * u, 2.1 * u, self.w - 0.5 * u, 2.1 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
-        c.text(line, 0, 2.15 * u, self.w, 0.7 * u, 0.33 * u, argb((0.85, 0.85, 0.9)), bold=False)
+        c.line(0.5 * u, 2.1 * u, self.w - 0.5 * u, 2.1 * u, c.theme.line, max(1, u / 25))
+        c.text(line, 0, 2.15 * u, self.w, 0.7 * u, 0.33 * u, c.theme.text, bold=False)
 
     def tick(self, now):
         if self.shown and (now - self.last_draw >= 1.0 or (self.app.animated() and now - self.last_draw > 1 / RGB_FPS)):
@@ -3562,8 +4517,8 @@ class RocketWidget(ArgbWidget):
         self.last_draw, self.dirty = now, False
         u, app = self.u, self.app
         panel(c, self.w, self.h, u, app, now)
-        muted, light = argb((0.62, 0.62, 0.7)), argb((0.85, 0.85, 0.9))
-        colors = [argb(app.glow_color(i / 4, now)) for i in range(5)]
+        muted, light = c.theme.muted, c.theme.text
+        colors = c.theme.nums(app, now)
         st = app.stats.data
         today = T("rl_today").format(st.get("rl_w", 0), st.get("rl_l", 0))
         if not self.in_match:
@@ -3576,7 +4531,7 @@ class RocketWidget(ArgbWidget):
             else:
                 status = T("rl_closed")
             c.text(status, 0, 1.65 * u, self.w, 0.8 * u, 0.4 * u, light, bold=False)
-            c.line(0.5 * u, 2.75 * u, self.w - 0.5 * u, 2.75 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+            c.line(0.5 * u, 2.75 * u, self.w - 0.5 * u, 2.75 * u, c.theme.line, max(1, u / 25))
             c.text(today, 0, 2.85 * u, self.w, 0.9 * u, 0.4 * u, light, bold=False)
             self.draw_flash(c, now)
             return
@@ -3595,7 +4550,7 @@ class RocketWidget(ArgbWidget):
         ot = game.get("bOvertime")
         clock = ("+" if ot else "") + clock_text(secs, hours=False)
         c.text(clock, 0, top, self.w, box_h, 0.8 * u, colors if not ot else argb((1.0, 0.85, 0.3)),
-               outline=argb((0, 0, 0), 0.6), outline_w=u / 12)
+               outline=c.theme.outline, outline_w=u / 12)
         if ot:
             c.text(T("rl_ot"), 0, top + box_h - 0.2 * u, self.w, 0.4 * u, 0.26 * u, argb((1.0, 0.85, 0.3)))
 
@@ -3619,7 +4574,7 @@ class RocketWidget(ArgbWidget):
         # your numbers, ball speed, wins today
         c.text(T("rl_stats").format(me.get("Goals", 0), me.get("Shots", 0), me.get("Assists", 0), me.get("Saves", 0)),
                0, 2.6 * u, self.w, 0.55 * u, 0.3 * u, light, bold=False)
-        c.line(0.5 * u, 3.2 * u, self.w - 0.5 * u, 3.2 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+        c.line(0.5 * u, 3.2 * u, self.w - 0.5 * u, 3.2 * u, c.theme.line, max(1, u / 25))
         ball = self.kmh_of((game.get("Ball") or {}).get("Speed"))
         if ball is not None:
             c.text(T("rl_ball").format(ball), 0.4 * u, 3.25 * u, 4 * u, 0.75 * u, 0.3 * u, muted, bold=False, align=0)
@@ -3706,6 +4661,7 @@ class ScoreboardWidget(ArgbWidget):
         self.in_match = False
         self.scores, self.secs, self.ot = [0, 0], 300, False
         self.colors = {0: RL_BLUE, 1: RL_ORANGE}
+        self.names = {0: "", 1: ""}
         self.my_team, self.my_name = None, None
         self.goal = None                          # (team, time)
         self.pops = {}                            # team -> time its number changed
@@ -3801,6 +4757,7 @@ class ScoreboardWidget(ArgbWidget):
                         self.pops[team] = now                      # the number pops when it changes
                     self.scores[team] = score
                     self.colors[team] = vivid(hex_rgb(t.get("ColorPrimary"), RL_BLUE if team == 0 else RL_ORANGE))
+                    self.names[team] = str(t.get("Name") or "").strip()
             if isinstance(game.get("TimeSeconds"), (int, float)):
                 self.secs = game["TimeSeconds"]
             self.ot = bool(game.get("bOvertime"))
@@ -4056,6 +5013,9 @@ class ScoreboardWidget(ArgbWidget):
                 c.text(T("rl_ot"), x, y + 0.08 * u, bw, 0.38 * u, 0.26 * u,
                        argb(gold) if mode != "pastel" else argb((0.62, 0.42, 0.02)), font=font)
 
+        if self.wcfg.get("names", True):
+            self.draw_names(c, now, mode, font, left, right)
+
         # confetti
         if self.bits:
             g = 5.5 * u
@@ -4076,6 +5036,33 @@ class ScoreboardWidget(ArgbWidget):
                     pts += [b[0] + px * ca - py * sa, b[1] + px * sa + py * ca]
                 c.shape(pts, fill=argb(b[7], max(0.0, 1.0 - max(0.0, age - self.CONFETTI + 0.8) / 0.8)))
             self.bits = alive
+
+    def draw_names(self, c, now, mode, font, left, right):
+        """Team names in small pills under the score tabs."""
+        u = self.u
+        for slot, team in ((0, left), (2, right)):
+            name = self.names.get(team, "")
+            if not name:
+                continue
+            if len(name) > 14:
+                name = name[:13] + "…"
+            _, (x, y, w, h) = self.shapes[slot]
+            col = self.colors[team]
+            _, _, tw, _ = c.measure(name, 0.34 * u, True, font)
+            pw = min(w + 1.2 * u, tw + 0.6 * u)
+            px, py, ph = x + w / 2 - pw / 2 + (0.18 * u if slot == 0 else -0.18 * u), self.Hb + 0.12 * u, 0.56 * u
+            if mode == "enhanced":
+                c.round_rect(px, py, pw, ph, ph / 2, fill=argb((0.05, 0.05, 0.08), 0.92), stroke=argb(col), width=max(1.2, u / 18))
+                ink = argb(mix(col, WHITE, 0.55))
+            elif mode == "pastel":
+                c.round_rect(px, py, pw, ph, ph / 2, fill=argb(mix(col, WHITE, 0.7)), stroke=argb(col), width=max(1.2, u / 18))
+                hh, ss, _ = colorsys.rgb_to_hsv(*col)
+                ink = argb(colorsys.hsv_to_rgb(hh, min(1.0, ss * 0.9 + 0.1), 0.38))
+            else:
+                c.round_rect(px, py, pw, ph, ph / 2, fill=argb((0.01, 0.01, 0.02), 0.95))
+                c.gradient_rect(px, py, pw, ph, ph / 2, stroke=self.rainbow(now, offset=slot * 0.2), width=max(1.2, u / 16))
+                ink = argb(mix(col, WHITE, 0.4))
+            c.text(name, px, py, pw, ph, 0.34 * u, ink, bold=True, font=font)
 
     def busy(self, now):
         return bool(self.bits or self.waves or any(now - t < 0.9 for t in self.pops.values())
@@ -4099,6 +5086,8 @@ class ScoreboardWidget(ArgbWidget):
             add(0x8, 831, f"{T('sb_font')}: {current}")
         add(0, 830, T("sb_font_other"))
         add(checked(self.wcfg.get("bold", True)), 793, T("sb_bold"))
+        if self.kind == "scoreboard":
+            add(checked(self.wcfg.get("names", True)), 795, T("sb_names"))
         add(0x1, 0, T("sb_same"))
 
     def menu_command(self, cmd):
@@ -4114,6 +5103,8 @@ class ScoreboardWidget(ArgbWidget):
             self.wcfg["font"], self.wcfg["bold"] = picked
         elif cmd == 793:
             self.wcfg["bold"] = not self.wcfg.get("bold", True)
+        elif cmd == 795:
+            self.wcfg["names"] = not self.wcfg.get("names", True)
         elif cmd == 794:
             self.wcfg["x"] = self.wcfg["y"] = None
             self.place()
@@ -4170,8 +5161,9 @@ class BoostWidget(ScoreboardWidget):
                 if self.prev_boost is not None and self.boost - self.prev_boost >= 10:
                     self.jump_at = time.monotonic()            # picked up a boost pad
                 self.prev_boost = self.boost
-            else:
-                self.boost = None
+            elif car is not None and car.get("bDemolished"):
+                self.boost, self.boosting = 0, False         # demolished: empty tank (the game sends no number)
+            # no car / no number for a moment (replays, kickoff): keep the last value instead of vanishing
             if (self.boost is not None) != was_known:
                 self.refresh()
 
@@ -4229,6 +5221,8 @@ class BoostWidget(ScoreboardWidget):
         box = (cx - rr, cy - rr, 2 * rr, 2 * rr)
         track = {"enhanced": argb(WHITE, 0.1), "pastel": argb(WHITE, 0.75), "black": argb(WHITE, 0.08)}[mode]
         c.arc(*box, start, sweep, track, ring_w)
+        if low:                                    # low / empty: the whole track glows red in time with the pulse
+            c.arc(*box, start, sweep, argb((1.0, 0.25, 0.25), 0.08 + 0.14 * lowp), ring_w)
         for k in range(11):                        # little marks every 10 %
             a = math.radians(start + sweep * k / 10)
             r1, r2 = rr - ring_w / 2 - 0.12 * u, rr - ring_w / 2 - (0.32 if k % 5 == 0 else 0.22) * u
@@ -4262,6 +5256,14 @@ class BoostWidget(ScoreboardWidget):
                     sp = (1.5 + random.random() * 2.5) * u
                     self.sparks.append([tx, ty, math.cos(ang) * sp, math.sin(ang) * sp, now,
                                         mix(mine, gold, random.random())])
+        if frac <= 0.005:                          # empty: a red light pulses where the ring starts
+            a = math.radians(start)
+            tx, ty = cx + rr * math.cos(a), cy + rr * math.sin(a)
+            for k in range(3):
+                r = ring_w * (0.5 + 0.35 * k) * (1 + 0.25 * lowp)
+                c.ellipse(tx - r, ty - r, 2 * r, 2 * r, fill=argb((1.0, 0.25, 0.25), (0.55 if k == 0 else 0.18 / k) * (0.5 + 0.5 * lowp)))
+            c.ellipse(tx - ring_w * 0.38, ty - ring_w * 0.38, ring_w * 0.76, ring_w * 0.76,
+                      fill=argb(mix((1.0, 0.3, 0.3), WHITE, 0.4 * lowp)))
         if frac >= 0.999 and not self.boosting:     # full tank: a light runs around the ring
             a = math.radians(start + sweep * ((now * 0.5) % 1.0))
             c.ellipse(cx + rr * math.cos(a) - ring_w * 0.5, cy + rr * math.sin(a) - ring_w * 0.5, ring_w, ring_w,
@@ -4306,9 +5308,138 @@ class BoostWidget(ScoreboardWidget):
                     or abs((self.boost or 0) - self.shown_boost) > 0.3)
 
 
+class ClockWidget(ArgbWidget):
+    """Clock (digital or analog) with the date, and a timer that tells you when time is up."""
+    kind = "clock"
+    TIMERS = (5, 10, 15, 20, 30, 45, 60, 90)
+
+    def __init__(self, app, wid):
+        super().__init__(app, wid)
+        self.last_draw = 0.0
+        self.done_at = None
+        self.build()
+
+    def build(self):
+        u = self.u
+        self.make_canvas(7.0 * u, 3.0 * u)
+        self.place()
+        self.refresh()
+
+    def timer_left(self):
+        end = self.wcfg.get("timer_end")
+        return None if not end else end - time.time()
+
+    def draw(self, c, now):
+        self.last_draw = now
+        u, app = self.u, self.app
+        t = datetime.now()
+        panel(c, self.w, self.h, u, app, now)
+        colors = c.theme.nums(app, now)
+        muted, light = c.theme.muted, c.theme.text
+        days = T("days").split(",")
+        date = f"{days[t.weekday()]} {t.day}. {t.month}." if LANG == "cs" else f"{days[t.weekday()]} {t.day}/{t.month}"
+        left = self.timer_left()
+        flashing = self.done_at is not None and now - self.done_at < 10
+        if self.wcfg.get("analog"):
+            r = 1.2 * u
+            cx, cy = 0.35 * u + r, self.h / 2
+            c.ellipse(cx - r, cy - r, 2 * r, 2 * r, fill=argb((0.03, 0.03, 0.05)), stroke=colors[1], width=max(1.5, u / 12))
+            for k in range(12):
+                a = math.radians(k * 30 - 90)
+                r1 = r * (0.78 if k % 3 == 0 else 0.86)
+                c.line(cx + r1 * math.cos(a), cy + r1 * math.sin(a), cx + r * 0.93 * math.cos(a), cy + r * 0.93 * math.sin(a),
+                       argb(WHITE, 0.8 if k % 3 == 0 else 0.4), max(1.0, u / (14 if k % 3 == 0 else 22)))
+            sec = t.second + t.microsecond / 1e6
+            hands = ((((t.hour % 12) + t.minute / 60) * 30, 0.5, u / 7, argb(WHITE)),
+                     ((t.minute + sec / 60) * 6, 0.76, u / 10, argb(WHITE)))
+            for deg, length, width, col in hands:
+                a = math.radians(deg - 90)
+                c.line(cx, cy, cx + r * length * math.cos(a), cy + r * length * math.sin(a), col, width)
+            if self.wcfg.get("seconds", True):
+                a = math.radians(sec * 6 - 90)
+                c.line(cx, cy, cx + r * 0.84 * math.cos(a), cy + r * 0.84 * math.sin(a), colors[3], max(1.0, u / 20))
+            c.ellipse(cx - 0.09 * u, cy - 0.09 * u, 0.18 * u, 0.18 * u, fill=colors[2])
+            tx, tw = cx + r + 0.3 * u, self.w - (cx + r + 0.3 * u) - 0.3 * u
+            c.text(t.strftime("%H:%M"), tx, 0.3 * u, tw, 1.1 * u, 0.85 * u, colors, outline=argb((0, 0, 0), 0.6),
+                   outline_w=u / 12)
+            c.text(date, tx, 1.35 * u, tw, 0.5 * u, 0.3 * u, light, bold=False)
+            line_y, x0, x1 = 1.95 * u, tx, tx + tw
+        else:
+            secs = self.wcfg.get("seconds", True)
+            main = t.strftime("%H:%M")
+            c.text(main, 0, 0.05 * u, self.w * (0.82 if secs else 1.0), 1.55 * u, 1.25 * u, colors,
+                   outline=c.theme.outline, outline_w=u / 10)
+            if secs:
+                c.text(f"{t.second:02d}", self.w * 0.74, 0.45 * u, self.w * 0.2, 1.0 * u, 0.55 * u, muted)
+            c.text(date, 0, 1.55 * u, self.w, 0.5 * u, 0.32 * u, light, bold=False)
+            line_y, x0, x1 = 2.15 * u, 0.5 * u, self.w - 0.5 * u
+        c.line(x0, line_y, x1, line_y, c.theme.line, max(1, u / 25))
+        if flashing:
+            blink = 0.5 + 0.5 * math.cos((now - self.done_at) * 2 * math.pi * 2)
+            c.round_rect(x0 - 0.2 * u, line_y + 0.08 * u, x1 - x0 + 0.4 * u, self.h - line_y - 0.25 * u, 0.2 * u,
+                         fill=argb((0.9, 0.2, 0.25), 0.35 + 0.5 * blink))
+            c.text(T("clk_done"), x0, line_y, x1 - x0, self.h - line_y - 0.1 * u, 0.34 * u, argb(WHITE))
+        elif left is not None:
+            total = self.wcfg.get("timer_len", 1) * 60
+            frac = max(0.0, min(1.0, left / total))
+            bar_x, bar_w = x0, x1 - x0
+            by = line_y + 0.2 * u
+            c.round_rect(bar_x, by, bar_w, 0.12 * u, 0.06 * u, fill=argb(WHITE, 0.12))
+            c.round_rect(bar_x, by, max(0.12 * u, bar_w * frac), 0.12 * u, 0.06 * u, fill=colors[1])
+            mm, ss = divmod(int(max(0, left)) + (1 if left % 1 else 0), 60)
+            c.text(T("clk_left").format(f"{mm}:{ss:02d}"), x0, by + 0.12 * u, x1 - x0, self.h - by - 0.2 * u, 0.3 * u,
+                   light, bold=False)
+        else:
+            c.text(t.strftime("%Y"), x0, line_y, x1 - x0, self.h - line_y - 0.05 * u, 0.28 * u, muted, bold=False)
+
+    def tick(self, now):
+        left = self.timer_left()
+        if left is not None and left <= 0:              # time's up
+            minutes = self.wcfg.get("timer_len", 0)
+            self.wcfg["timer_end"] = None
+            self.done_at = now
+            self.app.balloon(T("clk_done"), T("clk_done_text").format(minutes))
+            for k in range(3):
+                user32.MessageBeep(0x30)
+            save_settings(self.app.cfg)
+        if not self.shown:
+            return
+        busy = self.done_at is not None and now - self.done_at < 10
+        rate = 1 / 15 if (busy or self.wcfg.get("analog") or self.app.animated()) else 0.5
+        if now - self.last_draw >= rate:
+            self.redraw()
+
+    def menu_items(self, add, checked):
+        add(checked(self.wcfg.get("analog")), 860, T("clk_analog"))
+        add(checked(self.wcfg.get("seconds", True)), 861, T("clk_seconds"))
+        add(0x800, 0, None)
+        for i, m in enumerate(self.TIMERS):
+            add(checked(self.timer_left() is not None and self.wcfg.get("timer_len") == m), 862 + i, T("clk_timer").format(m))
+        if self.timer_left() is not None:
+            add(0, 875, T("clk_cancel"))
+
+    def menu_command(self, cmd):
+        if cmd == 860:
+            self.wcfg["analog"] = not self.wcfg.get("analog")
+        elif cmd == 861:
+            self.wcfg["seconds"] = not self.wcfg.get("seconds", True)
+        elif 862 <= cmd < 862 + len(self.TIMERS):
+            m = self.TIMERS[cmd - 862]
+            self.wcfg.update(timer_len=m, timer_end=time.time() + m * 60)
+            self.done_at = None
+        elif cmd == 875:
+            self.wcfg["timer_end"] = None
+        else:
+            return False
+        self.redraw()
+        return True
+
+
+
 class ChestWidget(ArgbWidget):
-    """Fortnite chest counter: press your chest key when you open one (Fortnite sends no data about chests).
-    Resets by itself when a new match starts; keeps today, total and the record per match."""
+    """Fortnite chest counter. Fortnite sends no data about chests, so it watches the "SEARCH" prompt next to the
+    crosshair (screen reading): E pressed while it shows, then it disappears = a chest opened. A key / mouse button
+    also counts +1 by hand. Resets when a new match starts; keeps today, total and the record per match."""
     kind = "chests"
     OPEN_TIME = 1.1
 
@@ -4316,6 +5447,9 @@ class ChestWidget(ArgbWidget):
         super().__init__(app, wid)
         self.opened_at = -9.0
         self.prompt = False
+        self.capture_what = "key"
+        self.seen_at = -99.0              # last time "SEARCH" was on screen
+        self.armed_at = None              # E pressed on a chest: waiting for the prompt to go away
         self.last_draw = 0.0
         self.sparkles = []
         self.build()
@@ -4333,6 +5467,30 @@ class ChestWidget(ArgbWidget):
     def key(self):
         k = self.wcfg.get("key") or ["m", "X2"]
         return tuple(k)
+
+    @property
+    def interact(self):
+        return tuple(self.wcfg.get("interact") or ["sc", 0x12, 0])          # E
+
+    @property
+    def auto(self):
+        return OCR_OK and self.wcfg.get("auto", True)
+
+    def pressed_interact(self, now):
+        if now - self.seen_at < 0.9:                     # the prompt was just on screen
+            self.armed_at = now
+
+    def ocr_result(self, t, kind, search):
+        """search = the "SEARCH" prompt is on screen in this picture."""
+        if search:
+            self.seen_at = max(self.seen_at, t)
+            if kind == "press":
+                self.armed_at = t
+            return
+        if self.armed_at is not None and t > self.armed_at + 0.2:
+            if t - self.armed_at < 4.0:                  # the prompt went away after E: the chest opened
+                self.add(1)
+            self.armed_at = None
 
     def add(self, n):
         st = self.app.stats
@@ -4418,14 +5576,19 @@ class ChestWidget(ArgbWidget):
         pop = 1.0 + (0.4 * math.exp(-6 * t) * math.cos(t * 10) if opening else 0.0)
         colors = [argb(mix(gold, WHITE, 0.3)), argb(gold), argb((1.0, 0.6, 0.15))]
         c.text(str(d.get("fn_match", 0)), tx - tw, 0.1 * u, 3 * tw, 1.5 * u, 1.15 * u * pop, colors,
-               outline=argb((0, 0, 0), 0.6), outline_w=u / 10)
-        c.text(T("fn_match"), tx, 1.5 * u, tw, 0.5 * u, 0.32 * u, argb((0.62, 0.62, 0.7)))
+               outline=c.theme.outline, outline_w=u / 10)
+        c.text(T("fn_match"), tx, 1.5 * u, tw, 0.5 * u, 0.32 * u, c.theme.muted)
         running = FORTNITE_EXE in app.running
-        c.line(0.5 * u, 2.25 * u, self.w - 0.5 * u, 2.25 * u, argb((1, 1, 1), 0.08), max(1, u / 25))
+        c.line(0.5 * u, 2.25 * u, self.w - 0.5 * u, 2.25 * u, c.theme.line, max(1, u / 25))
         c.text(T("fn_line").format(d.get("fn_today", 0), d.get("fn_total", 0), d.get("fn_best", 0)), 0, 2.3 * u,
-               self.w, 0.55 * u, 0.3 * u, argb((0.85, 0.85, 0.9)), bold=False)
-        hint = T("fn_hint").format(key_label(self.key)) if running else T("fn_closed")
-        c.text(hint, 0, 2.8 * u, self.w, 0.5 * u, 0.26 * u, argb((0.62, 0.62, 0.7)), bold=False)
+               self.w, 0.55 * u, 0.3 * u, c.theme.text, bold=False)
+        if not running:
+            hint = T("fn_closed")
+        elif self.auto:
+            hint = T("fn_hint_auto")
+        else:
+            hint = T("fn_hint").format(key_label(self.key))
+        c.text(hint, 0, 2.8 * u, self.w, 0.5 * u, 0.26 * u, c.theme.muted, bold=False)
 
     def tick(self, now):
         if not self.shown:
@@ -4438,6 +5601,8 @@ class ChestWidget(ArgbWidget):
         add(0, 850, T("fn_plus"))
         add(0, 851, T("fn_minus"))
         add(0x800, 0, None)
+        if OCR_OK:
+            add(checked(self.auto), 855, T("fn_auto"))
         add(0x1, 0, T("fn_key").format(key_label(self.key)))
         add(0, 852, T("fn_change"))
         add(0x800, 0, None)
@@ -4454,6 +5619,8 @@ class ChestWidget(ArgbWidget):
             self.prompt = True
             self.app.chest_capture = self
             self.refresh()
+        elif cmd == 855:
+            self.wcfg["auto"] = not self.auto
         elif cmd == 853:
             d["fn_match"] = 0
         elif cmd == 854:
@@ -4467,9 +5634,215 @@ class ChestWidget(ArgbWidget):
         self.prompt = False
         self.app.chest_capture = None
         if kid is not None:
-            self.wcfg["key"] = list(kid)
+            self.wcfg[self.capture_what] = list(kid)
             save_settings(self.app.cfg)
         self.refresh()
+
+class FnMatchWidget(ArgbWidget):
+    """Fortnite match time from the game's own log: island, battle bus, match, end; today's matches."""
+    kind = "fnmatch"
+
+    def __init__(self, app, wid):
+        super().__init__(app, wid)
+        self.phase, self.since, self.bus_at = "lobby", time.time(), None
+        self.last_len = None
+        self.last_draw = 0.0
+        self.build()
+
+    def build(self):
+        u = self.u
+        self.make_canvas(7.4 * u, 3.1 * u)
+        self.place()
+        self.refresh()
+
+    def has_content(self):
+        return FORTNITE_EXE in self.app.running
+
+    def finish(self, now):
+        if self.bus_at is None:
+            return
+        length = int(now - self.bus_at)
+        self.bus_at = None
+        if length < 20:
+            return
+        self.last_len = length
+        st = self.app.stats
+        st.check_day()
+        d = st.data
+        d["fnm_count"] = d.get("fnm_count", 0) + 1
+        d["fnm_time"] = d.get("fnm_time", 0) + length
+        d["fnm_best"] = max(d.get("fnm_best", 0), length)
+        save_settings(self.app.cfg)
+
+    def on_fn(self, event, value):
+        now = time.time()
+        if event == "phase":
+            if value == "Warmup":
+                self.finish(now)
+                self.phase, self.since = "warmup", now
+            elif value == "Aircraft":
+                self.phase, self.since, self.bus_at = "bus", now, now
+            elif value == "SafeZones":
+                self.phase = "game"
+                if self.bus_at is None:
+                    self.bus_at = now
+            elif value == "EndGame":
+                self.finish(now)
+                self.phase, self.since = "end", now
+        elif event == "lobby":
+            self.finish(now)
+            self.phase, self.since = "lobby", now
+        if self.shown:
+            self.redraw()
+
+    def draw(self, c, now):
+        self.last_draw = now
+        u, app, th = self.u, self.app, c.theme
+        panel(c, self.w, self.h, u, app, now)
+        t = time.time()
+        d = app.stats.data
+        label = T({"lobby": "fm_lobby", "warmup": "fm_warmup", "bus": "fm_bus", "game": "fm_game",
+                   "end": "fm_end"}[self.phase])
+        accent = argb(th.accent(app, now))
+        c.text(label, 0.45 * u, 0.18 * u, self.w - 0.9 * u, 0.5 * u, 0.32 * u, accent, align=0)
+        if self.phase in ("bus", "game") and self.bus_at:
+            big, sub = clock_text(t - self.bus_at, hours=False), ""
+        elif self.phase == "warmup":
+            big, sub = clock_text(t - self.since, hours=False), ""
+        else:
+            big = clock_text(self.last_len, hours=False) if self.last_len else "--:--"
+            sub = T("fm_last")
+        c.text(sub, 0, 0.18 * u, self.w - 0.45 * u, 0.5 * u, 0.28 * u, th.muted, bold=False, align=2)
+        c.text(big, 0, 0.55 * u, self.w, 1.45 * u, 1.1 * u, th.nums(app, now), outline=th.outline, outline_w=u / 10)
+        n = d.get("fnm_count", 0)
+        avg = clock_text(d.get("fnm_time", 0) / n, hours=False) if n else "-"
+        best = clock_text(d.get("fnm_best", 0), hours=False) if n else "-"
+        c.line(0.5 * u, 2.15 * u, self.w - 0.5 * u, 2.15 * u, th.line, max(1, u / 25))
+        c.text(T("fm_line").format(n, avg, best), 0, 2.2 * u, self.w, 0.7 * u, 0.3 * u, th.text, bold=False)
+
+    def tick(self, now):
+        if self.shown and now - self.last_draw >= (1 / 15 if self.app.animated() else 0.5):
+            self.redraw()
+
+    def menu_items(self, add, checked):
+        add(0, 890, T("fm_reset"))
+
+    def menu_command(self, cmd):
+        if cmd == 890:
+            self.app.stats.data.update(fnm_count=0, fnm_time=0, fnm_best=0)
+            self.redraw()
+            return True
+        return False
+
+
+class DrinkWidget(ArgbWidget):
+    """Reminds you to drink: the glass empties over the interval; when it's empty you get a reminder."""
+    kind = "drink"
+    INTERVALS = (15, 20, 30, 45, 60, 90)
+
+    def __init__(self, app, wid):
+        super().__init__(app, wid)
+        self.left = self.interval * 60.0            # seconds until the next reminder
+        self.due_at = None
+        self.last_tick, self.last_draw = time.monotonic(), 0.0
+        self.build()
+
+    @property
+    def interval(self):
+        v = self.wcfg.get("interval", 30)
+        return v if v in self.INTERVALS else 30
+
+    def build(self):
+        u = self.u
+        self.make_canvas(6.6 * u, 2.9 * u)
+        self.place()
+        self.refresh()
+
+    def paused(self):
+        return self.wcfg.get("only_games") and not self.app.game_since
+
+    def drank(self):
+        st = self.app.stats
+        st.check_day()
+        st.data["drinks"] = st.data.get("drinks", 0) + 1
+        self.left, self.due_at = self.interval * 60.0, None
+        save_settings(self.app.cfg)
+        if self.shown:
+            self.redraw()
+
+    def draw(self, c, now):
+        self.last_draw = now
+        u, app, th = self.u, self.app, c.theme
+        panel(c, self.w, self.h, u, app, now)
+        due = self.due_at is not None
+        frac = 0.0 if due else max(0.0, min(1.0, self.left / (self.interval * 60.0)))
+        blink = 0.5 + 0.5 * math.cos(now * 2 * math.pi * 1.5) if due else 0.0
+        # the glass (an original little drawing)
+        gx, gy, gw, gh = 0.55 * u, 0.4 * u, 1.5 * u, 2.1 * u
+        inset = 0.22 * u
+        glass = [gx, gy, gx + gw, gy, gx + gw - inset, gy + gh, gx + inset, gy + gh]
+        water = (0.25, 0.65, 1.0)
+        if frac > 0.01:
+            level = gy + gh - (gh - 0.15 * u) * frac
+            k = (level - gy) / gh * inset
+            wave = math.sin(now * 2.5) * 0.06 * u
+            pts = [gx + k + 0.05 * u, level + wave, gx + gw - k - 0.05 * u, level - wave,
+                   gx + gw - inset - 0.04 * u, gy + gh - 0.05 * u, gx + inset + 0.04 * u, gy + gh - 0.05 * u]
+            c.shape(pts, fill=[argb(mix(water, WHITE, 0.35), 0.9), argb(water, 0.95)])
+        c.shape(glass, fill=argb(WHITE, 0.08), stroke=argb(th.text_rgb, 0.85), width=max(1.5, u / 12))
+        c.line(gx + 0.25 * u, gy + 0.3 * u, gx + 0.38 * u, gy + gh - 0.4 * u, argb(WHITE, 0.35), max(1.0, u / 16))
+        tx = gx + gw + 0.45 * u
+        tw = self.w - tx - 0.3 * u
+        if due:
+            c.round_rect(tx - 0.15 * u, 0.45 * u, tw + 0.3 * u, 1.3 * u, 0.3 * u,
+                         fill=argb(mix(water, WHITE, 0.2), 0.35 + 0.5 * blink))
+            c.text(T("dr_now"), tx, 0.45 * u, tw, 1.3 * u, 0.62 * u, argb(WHITE), outline=argb((0, 0, 0), 0.5),
+                   outline_w=u / 12)
+        else:
+            mins = int(self.left // 60) + 1
+            c.text(f"{mins} min", tx, 0.35 * u, tw, 1.1 * u, 0.85 * u, th.nums(app, now), outline=th.outline,
+                   outline_w=u / 10)
+            sub = T("dr_paused") if self.paused() else T("dr_in")
+            c.text(sub, tx, 1.4 * u, tw, 0.5 * u, 0.3 * u, th.muted, bold=False)
+        c.text(T("dr_today").format(app.stats.data.get("drinks", 0)), tx, 2.0 * u, tw, 0.5 * u, 0.3 * u, th.text,
+               bold=False)
+
+    def tick(self, now):
+        dt, self.last_tick = now - self.last_tick, now
+        if self.due_at is None and not self.paused():
+            self.left -= dt
+            if self.left <= 0:                       # time to drink
+                self.due_at = now
+                self.app.balloon(T("dr_title"), T("dr_text").format(self.interval))
+                user32.MessageBeep(0x40)
+        elif self.due_at is not None and now - self.due_at > 60:
+            self.drank()                             # the reminder showed for a minute: next round
+        if self.shown and (now - self.last_draw >= (1 / 20 if self.due_at else 0.5)):
+            self.redraw()
+
+    def menu_items(self, add, checked):
+        add(0, 880, T("dr_done"))
+        add(0x800, 0, None)
+        for i, m in enumerate(self.INTERVALS):
+            add(checked(self.interval == m), 881 + i, T("dr_interval").format(m))
+        add(checked(bool(self.wcfg.get("only_games"))), 887, T("dr_games"))
+        add(0, 888, T("dr_reset"))
+
+    def menu_command(self, cmd):
+        if cmd == 880:
+            self.drank()
+            return True
+        if 881 <= cmd < 881 + len(self.INTERVALS):
+            self.wcfg["interval"] = self.INTERVALS[cmd - 881]
+            self.left = min(self.left, self.interval * 60.0)
+        elif cmd == 887:
+            self.wcfg["only_games"] = not self.wcfg.get("only_games")
+        elif cmd == 888:
+            self.app.stats.data["drinks"] = 0
+        else:
+            return False
+        self.redraw()
+        return True
 
 
 class DashWidget(ArgbWidget):
@@ -4536,15 +5909,15 @@ class DashWidget(ArgbWidget):
 
         # numbers
         tx = 2.8 * u
-        colors = [argb(app.glow_color(i / 4, now)) for i in range(5)]
+        colors = c.theme.nums(app, now)
         c.text(f"{st.get('gd_jumps', 0):,}".replace(",", " "), tx, 0.2 * u, self.w - tx - 0.3 * u, 1.3 * u, 1.0 * u,
-               colors, outline=argb((0, 0, 0), 0.6), outline_w=u / 10)
-        c.text(T("gd_jumps"), tx, 1.45 * u, self.w - tx - 0.3 * u, 0.5 * u, 0.32 * u, argb((0.62, 0.62, 0.7)))
+               colors, outline=c.theme.outline, outline_w=u / 10)
+        c.text(T("gd_jumps"), tx, 1.45 * u, self.w - tx - 0.3 * u, 0.5 * u, 0.32 * u, c.theme.muted)
         played = app.gd_seconds
         line = T("gd_time").format(clock_text(played, hours=False)) if self.has_content() else T("gd_closed")
-        c.text(line, tx, 2.0 * u, self.w - tx - 0.3 * u, 0.5 * u, 0.3 * u, argb((0.85, 0.85, 0.9)), bold=False)
+        c.text(line, tx, 2.0 * u, self.w - tx - 0.3 * u, 0.5 * u, 0.3 * u, c.theme.text, bold=False)
         c.text(T("gd_total").format(f"{st.get('gd_total', 0):,}".replace(",", " ")), tx, 2.5 * u,
-               self.w - tx - 0.3 * u, 0.5 * u, 0.28 * u, argb((0.62, 0.62, 0.7)), bold=False)
+               self.w - tx - 0.3 * u, 0.5 * u, 0.28 * u, c.theme.muted, bold=False)
 
     def tick(self, now):
         if not self.shown:
@@ -4591,7 +5964,7 @@ class TextWidget(ArgbWidget):
     def colors(self, now):
         mode = self.wcfg.get("color", "effect")
         if mode == "effect":
-            return [argb(self.app.glow_color(i / 4, now)) for i in range(5)]
+            return self.app.theme_for(self).nums(self.app, now)
         if mode == "white":
             return argb(WHITE)
         return argb(COLORS.get(mode) or WHITE)
@@ -4769,7 +6142,7 @@ class HintWidget(ArgbWidget):
 WIDGET_CLASSES = {"player": PlayerWidget, "stats": StatsWidget, "cat": CatWidget, "text": TextWidget,
                   "image": ImageWidget, "session": SessionWidget, "rocket": RocketWidget, "dash": DashWidget,
                   "scoreboard": ScoreboardWidget, "boost": BoostWidget,
-                  "chests": ChestWidget}
+                  "clock": ClockWidget, "chests": ChestWidget, "fnmatch": FnMatchWidget, "drink": DrinkWidget}
 
 
 GD_JUMP_KEYS = {M("L"), S(0x39), E(0x48), S(0x11)}         # click, Space, Up arrow, W
@@ -4782,7 +6155,11 @@ class App:
         self.dpi = user32.GetDpiForSystem() / 96.0
         self.editing = False
         self.capturing = None
+        self.obs_dibs = {}
+        self.obs_last = 0.0
+        self.web_messages = None
         self.chest_capture = None
+        self.fn_checks, self.fn_scan_at = [], 0.0
         self.bind_ok = {}
         self.held = set()
         self.ticks = 0
@@ -4831,6 +6208,19 @@ class App:
         if self.editing:
             widget.set_editing(True)
         return widget
+
+    def theme_for(self, widget):
+        """The widget's own theme / font if it has one, otherwise the main ones."""
+        c = widget.wcfg if widget.id else {}
+        name = c.get("theme") if c.get("theme") in THEME_IDS else self.cfg.get("theme", "classic")
+        font = c.get("wfont") or self.cfg.get("font") or "Segoe UI"
+        if not font_installed(font):
+            font = "Segoe UI"
+        key = (name, font, json.dumps(self.cfg.get("custom_theme"), sort_keys=True) if name == "custom" else "")
+        cache = self.__dict__.setdefault("_themes", {})
+        if key not in cache:
+            cache[key] = Theme(theme_spec(name, self.cfg), font)
+        return cache[key]
 
     def widgets_of(self, kind):
         return [w for w in self.widgets.values() if w.kind == kind]
@@ -4969,6 +6359,419 @@ class App:
                 pass
         save_settings(self.cfg)
 
+
+    # ---------- main menu (web page in its own window)
+    def web_call(self, action, data):
+        self.web_messages = []
+        try:
+            self.web_action(action, data or {})
+            result = {"state": self.web_state()}
+        except Exception as e:
+            result = {"state": self.web_state(), "msg": f"⚠ {e}"}
+        finally:
+            msgs, self.web_messages = self.web_messages, None
+        if msgs and "msg" not in result:
+            result["msg"] = "\n\n".join(msgs)
+        return result
+
+    def web_state(self):
+        cfg = self.cfg
+        widgets = []
+        for wid, w in self.widgets.items():
+            c = w.wcfg
+            item = {"id": wid, "kind": w.kind, "label": w.label(), "visible": bool(c.get("visible", True)),
+                    "size": c.get("size", 26), "removable": w.kind in ("text", "image"),
+                    "game": w.kind in ("rocket", "dash", "scoreboard", "boost")}
+            if isinstance(w, KeysWidget):
+                item.update(style=w.style, numpad=c.get("numpad", True), background=bool(c.get("background")))
+            elif w.kind == "cat":
+                item["fur"] = c.get("fur", "orange")
+            elif w.kind == "clock":
+                left = w.timer_left()
+                item.update(analog=bool(c.get("analog")), seconds=c.get("seconds", True),
+                            timer=c.get("timer_len") if left is not None else 0)
+            elif w.kind == "text":
+                names = [n for n in COLORS if n not in ("rainbow", "white")]
+                item.update(text=c.get("text", ""), color=c.get("color", "effect"), bold=c.get("bold", True),
+                            background=bool(c.get("background")),
+                            colors=[{"id": "effect", "name": T("tc_effect")}, {"id": "white", "name": T("c_white")}]
+                            + [{"id": n, "name": T("c_" + n)} for n in names])
+            widgets.append(item)
+        widgets.sort(key=lambda x: WIDGET_TYPES.index(x["kind"]))
+        for item in widgets:                             # every widget can have its own theme and font
+            w = self.widgets[item["id"]]
+            item.update(themeable=w.kind not in ("scoreboard", "boost", "image"), theme=w.wcfg.get("theme") or "",
+                        wfont=w.wcfg.get("wfont") or "")
+            if w.kind == "drink":
+                item.update(interval=w.interval, only_games=bool(w.wcfg.get("only_games")))
+            elif w.kind == "chests":
+                item.update(auto=w.auto, ocr=OCR_OK, key=key_label(w.key), prompt=w.prompt)
+        sb = next((w for w in self.widgets.values() if w.kind == "scoreboard"), None)
+        sbc = sb.wcfg if sb else {}
+        styles = {w.style for w in self.widgets.values() if isinstance(w, KeysWidget)}
+        binds = self.binds()
+        fonts = installed_fonts()
+        st = self.stats.data
+        def css(rgb, a=1.0):
+            return f"rgba({int(rgb[0] * 255)},{int(rgb[1] * 255)},{int(rgb[2] * 255)},{a})"
+
+        def theme_card(tid):
+            sp = theme_spec(tid, cfg)
+            b, n = sp.get("border"), sp.get("nums")
+            border = {"glow": css(self.glow_color(0.1, 0)), "rainbow": "#ff4dc4", "pastel": "#c9b6ff", "neon": "#33ffff"}.get(b) \
+                if isinstance(b, str) else (css(b) if b else None)
+            if isinstance(n, list):
+                nums = f"linear-gradient(90deg,{css(n[0])},{css(n[-1])})"
+            elif n == "pastel":
+                nums = "linear-gradient(90deg,#d88fd0,#8fb8e8,#8fd8a8)"
+            elif n == "rainbow":
+                nums = "linear-gradient(90deg,#ff4d4d,#ffd24d,#4dff88,#4dc3ff,#b04dff)"
+            else:
+                nums = "linear-gradient(90deg," + ",".join(css(self.glow_color(i / 4, 0)) for i in range(5)) + ")"
+            return {"id": tid, "name": T("th_" + tid), "bg": list(sp["bg"]) if sp.get("bg") else None,
+                    "bg_a": sp.get("bg_a", 0), "border_css": border, "text_css": css(sp["text"]), "nums_css": nums,
+                    "radius": sp.get("radius", 0.45)}
+        return {
+            "theme": {"current": cfg.get("theme", "classic"), "font": cfg.get("font", "Segoe UI"),
+                      "list": [theme_card(t) for t in THEME_IDS],
+                      "custom": {**DEFAULTS["custom_theme"], **(cfg.get("custom_theme") or {})}},
+            "fonts": {"rec": [f for f in SB_FONTS if f not in SB_HANDWRITING and font_installed(f)],
+                      "hand": [f for f in SB_FONTS if f in SB_HANDWRITING and font_installed(f)], "all": fonts},
+            "lang": LANG, "visible": cfg["visible"], "editing": self.editing, "frozen": FROZEN,
+            "autostart": autostart_enabled() if FROZEN else False,
+            "sound": {"on": cfg["sound"], "choice": cfg["sound_choice"], "volume": cfg["volume"],
+                      "mouse": cfg["mouse_sound"], "sounds": [{"id": k, "name": n} for k, n in SOUNDS],
+                      "custom_name": (os.path.basename(cfg.get("custom_name") or cfg.get("custom_sound") or "")
+                                      if cfg.get("custom_sound") and os.path.exists(cfg["custom_sound"]) else "")},
+            "look": {"effect": cfg["effect"], "effects": [{"id": e, "name": T("fx_" + e)} for e in EFFECTS],
+                     "color": cfg["color"], "opacity": cfg["opacity"],
+                     "colors": [{"id": n, "name": T("c_" + n), "rgb": hex_color(rgb) if rgb else None}
+                                for n, rgb in COLORS.items()],
+                     "key_style": styles.pop() if len(styles) == 1 else "",
+                     "styles": [{"id": k, "name": T("st_" + k)} for k in KEY_STYLES]},
+
+            "furs": [{"id": f, "name": T("fur_" + f)} for f in FURS],
+            "corners": [{"id": c, "name": T(c)} for c in ("bottom-left", "bottom-right", "top-left", "top-right")],
+            "widgets": widgets,
+            "rl": {"mode": sbc.get("mode", "enhanced"), "modes": [{"id": m, "name": T("sb_" + m)} for m in SB_MODES],
+                   "font": sbc.get("font") or "Bahnschrift", "bold": sbc.get("bold", True),
+                   "names": sbc.get("names", True), "opacity": float(sbc.get("opacity", 1.0)),
+                   "fonts_rec": [f for f in SB_FONTS if f not in SB_HANDWRITING and font_installed(f)],
+                   "fonts_hand": [f for f in SB_FONTS if f in SB_HANDWRITING and font_installed(f)],
+                   "fonts_all": fonts, "rate": self.rl_live_rate(), "live_on": self.rl_live_on(),
+                   "borderless": self.rl_borderless_on()},
+            "games": {"fn_windowed": fn_windowed_on()},
+            "music": {"available": MEDIA_OK, "mute_ads": cfg["mute_ads"], "seek_step": cfg["seek_step"],
+                      "music_step": cfg["music_step"], "capturing": self.capturing,
+                      "binds": [{"act": a, "label": T("ma_" + a), "text": bind_text(*binds[a])} for a in MEDIA_ACTIONS]},
+            "obs": {"on": obs_enabled, "url": f"http://127.0.0.1:{web_port}/all",
+                    "w": user32.GetSystemMetrics(0), "h": user32.GetSystemMetrics(1)},
+            "stats": {"keys": st.get("keys", 0), "clicks": st.get("clicks", 0), "best_cps": st.get("best_cps", 0),
+                      "cat": st.get("cat", 0)},
+        }
+
+    def web_action(self, a, d):
+        global sound_enabled, mouse_sound_enabled
+        cfg = self.cfg
+        v = d.get("v")
+        if a == "state":
+            return
+        if a == "set":
+            k = d.get("k")
+            if k == "sound":
+                cfg["sound"] = sound_enabled = bool(v)
+            elif k == "mouse_sound":
+                cfg["mouse_sound"] = mouse_sound_enabled = bool(v)
+            elif k == "volume":
+                cfg["volume"] = max(0.1, min(2.0, float(v)))
+                self.set_sound(cfg["sound_choice"])
+            elif k == "effect" and v in EFFECTS:
+                cfg["effect"] = v
+                self.effect_changed()
+            elif k == "color" and v in COLORS:
+                cfg["color"] = v
+                self.effect_changed()
+            elif k == "opacity":
+                cfg["opacity"] = max(0.3, min(1.0, float(v)))
+                for x in self.widgets.values():
+                    if not x.argb:
+                        user32.SetLayeredWindowAttributes(x.hwnd, TRANSPARENT_KEY, int(cfg["opacity"] * 255), 3)
+                    x.refresh()
+            elif k == "visible":
+                cfg["visible"] = bool(v)
+                self.refresh_all()
+            elif k == "mute_ads":
+                cfg["mute_ads"] = media_options["mute_ads"] = bool(v)
+            elif k == "seek_step" and int(v) in (5, 10, 15, 30):
+                cfg["seek_step"] = int(v)
+            elif k == "music_step" and int(v) in (2, 5, 10):
+                cfg["music_step"] = int(v)
+            save_settings(cfg)
+        elif a == "sound_choice":
+            if v in dict(SOUNDS) or (v == "custom" and cfg.get("custom_sound") and os.path.exists(cfg["custom_sound"])):
+                self.set_sound(v)
+        elif a == "test_sound":
+            play_requests.put(1)
+        elif a == "upload_sound":
+            name = os.path.basename(str(d.get("name") or "sound.wav"))
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in (".wav", ".mp3", ".m4a", ".ogg", ".flac", ".wma", ".aac"):
+                self.say(T("sound_error").format(name))
+                return
+            os.makedirs(DATA_DIR, exist_ok=True)
+            target = os.path.join(DATA_DIR, "custom_sound" + ext)
+            for old in os.listdir(DATA_DIR):
+                if old.startswith("custom_sound") and os.path.join(DATA_DIR, old) != target:
+                    os.remove(os.path.join(DATA_DIR, old))
+            with open(target, "wb") as f:
+                f.write(__import__("base64").b64decode(d.get("data") or ""))
+            cfg["custom_sound"], cfg["custom_name"] = target, name
+            self.set_sound("custom")
+            self.say(T("sound_saved").format(name), 0x40)
+        elif a == "theme" and v in THEME_IDS:
+            cfg["theme"] = v
+            self.theme_changed()
+        elif a == "font" and v:
+            cfg["font"] = str(v)[:64]
+            self.theme_changed()
+        elif a == "custom":
+            k = d.get("k")
+            ct = {**DEFAULTS["custom_theme"], **(cfg.get("custom_theme") or {})}
+            if k in ("bg", "text", "muted") and str(v).startswith("#"):
+                ct[k] = str(v)[:7]
+            elif k == "border" and (str(v).startswith("#") or v in ("glow", "rainbow", "pastel", "neon", "none")):
+                ct[k] = str(v)[:7] if str(v).startswith("#") else v
+            elif k == "nums" and (str(v).startswith("#") or v in ("effect", "rainbow", "pastel")):
+                ct[k] = str(v)[:7] if str(v).startswith("#") else v
+            elif k == "bg_a":
+                ct[k] = max(0.0, min(1.0, float(v)))
+            elif k == "radius":
+                ct[k] = max(0.0, min(1.2, float(v)))
+            cfg["custom_theme"] = ct
+            cfg["theme"] = "custom"                       # editing it shows it
+            self.theme_changed()
+        elif a == "key_style" and v in KEY_STYLES:
+            for w in self.widgets.values():
+                if isinstance(w, KeysWidget):
+                    w.wcfg["style"] = v
+                    w.build()
+            save_settings(cfg)
+        elif a == "edit":
+            self.toggle_edit()
+        elif a in ("w", "wcmd", "home", "remove", "image"):
+            w = self.widgets.get(d.get("id"))
+            if not w:
+                return
+            if a == "w":
+                self.web_widget(w, d.get("k"), v)
+            elif a == "wcmd" and d.get("cmd") in (710, 711, 729, 762, 770, 771, 780, 850, 851, 852, 853, 854,
+                                                  880, 888, 890):
+                w.menu_command(int(d["cmd"]))
+            elif a == "home":
+                w.wcfg["x"] = w.wcfg["y"] = None
+                w.place()
+                w.refresh()
+            elif a == "remove" and w.kind in ("text", "image"):
+                self.remove_widget(w)
+            elif a == "image" and w.kind == "image":
+                if self.save_image(w.wcfg, w.id, d.get("name"), d.get("data")):
+                    w.load()
+                    w.build()
+            save_settings(cfg)
+        elif a == "home_all":
+            self.reset_layout()
+        elif a == "arrange" and v in ("bottom-left", "bottom-right", "top-left", "top-right"):
+            self.reset_layout(v)
+        elif a == "add_text":
+            text = str(d.get("text") or "").strip()
+            if text:
+                self.new_widget("text", {"text": text, "color": "effect", "bold": True, "background": False})
+        elif a == "add_image":
+            wid = self.next_id("image")
+            wcfg = {"type": "image", "x": None, "y": None, "size": 30, "visible": True}
+            if self.save_image(wcfg, wid, d.get("name"), d.get("data")):
+                self.new_widget("image", wcfg, wid)
+        elif a == "rl":
+            sb = next((w for w in self.widgets.values() if w.kind == "scoreboard"), None)
+            k = d.get("k")
+            if sb:
+                if k == "mode" and v in SB_MODES:
+                    sb.wcfg["mode"] = v
+                elif k == "font" and v:
+                    sb.wcfg["font"] = str(v)[:64]
+                elif k in ("bold", "names"):
+                    sb.wcfg[k] = bool(v)
+                elif k == "opacity":
+                    sb.wcfg["opacity"] = max(0.3, min(1.0, float(v)))
+                sb.redraw()
+                sb.sync_style()
+                save_settings(cfg)
+        elif a == "rl_live":
+            self.games_command(560)
+        elif a == "rl_border":
+            self.games_command(561)
+        elif a == "fn_window":
+            self.fortnite_window_command()
+        elif a == "bind" and d.get("act") in MEDIA_ACTIONS:
+            self.start_capture(d["act"])
+        elif a == "bind_reset":
+            cfg["binds"] = copy.deepcopy(DEFAULTS["binds"])
+            save_settings(cfg)
+            self.register_binds()
+        elif a == "obs":
+            self.obs_toggle(bool(v))
+        elif a == "autostart" and FROZEN:
+            set_autostart(bool(v))
+        elif a == "quit":
+            user32.PostQuitMessage(0)
+
+    def web_widget(self, w, k, v):
+        c = w.wcfg
+        if k == "visible":
+            c["visible"] = bool(v)
+            if v:
+                self.cfg["visible"] = True
+            self.refresh_all()
+            return
+        if k == "size":
+            w.remember_position()
+            c["size"] = max(10, min(120, int(v)))
+        elif k == "style" and isinstance(w, KeysWidget) and v in KEY_STYLES:
+            c["style"] = v
+        elif k in ("numpad", "background", "analog", "seconds", "bold") and isinstance(v, bool):
+            c[k] = v
+        elif k == "fur" and v in FURS:
+            c["fur"] = v
+        elif k == "theme":
+            c["theme"] = v if v in THEME_IDS else None
+            self.__dict__.pop("_themes", None)
+        elif k == "wfont":
+            c["wfont"] = str(v)[:64] if v else None
+            self.__dict__.pop("_themes", None)
+        elif k == "interval" and w.kind == "drink" and int(v) in DrinkWidget.INTERVALS:
+            c["interval"] = int(v)
+            w.left = min(w.left, int(v) * 60.0)
+        elif k == "only_games" and w.kind == "drink":
+            c["only_games"] = bool(v)
+        elif k == "auto" and w.kind == "chests":
+            c["auto"] = bool(v)
+        elif k == "timer" and w.kind == "clock":
+            minutes = int(v or 0)
+            if minutes:
+                c.update(timer_len=minutes, timer_end=time.time() + minutes * 60)
+                w.done_at = None
+            else:
+                c["timer_end"] = None
+        elif k == "text" and w.kind == "text" and str(v).strip():
+            c["text"] = str(v)
+        elif k == "color" and w.kind == "text":
+            c["color"] = str(v)
+        else:
+            return
+        if w.kind in ("cat", "clock"):
+            w.redraw()
+        else:
+            w.build()
+
+    def next_id(self, kind):
+        n = 1
+        while f"{kind}{n}" in self.cfg["widgets"]:
+            n += 1
+        return f"{kind}{n}"
+
+    def new_widget(self, kind, extra, wid=None):
+        wid = wid or self.next_id(kind)
+        wcfg = {"type": kind, "x": None, "y": None, "size": 26, "visible": True, **extra}
+        self.cfg["widgets"][wid] = wcfg
+        self.cfg["visible"] = True
+        self.create_widget(wid)
+        save_settings(self.cfg)
+
+    def save_image(self, wcfg, wid, name, data):
+        name = os.path.basename(str(name or "image.png"))
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in (".png", ".jpg", ".jpeg", ".gif", ".bmp") or not data:
+            self.say(T("image_missing"))
+            return False
+        folder = os.path.join(DATA_DIR, "images")
+        os.makedirs(folder, exist_ok=True)
+        target = os.path.join(folder, f"{wid}{ext}")
+        old = wcfg.get("path")
+        if old and os.path.exists(old) and os.path.abspath(old) != os.path.abspath(target):
+            os.remove(old)
+        with open(target, "wb") as f:
+            f.write(__import__("base64").b64decode(data))
+        wcfg["path"], wcfg["name"] = target, name
+        return True
+
+    # ---------- Fortnite chests (screen reading)
+    def fn_read_prompt(self, kind):
+        x, y, w, h = prompt_area()
+        try:
+            fn_ocr_requests.put_nowait((time.monotonic(), kind, w, h, grab_screen(x, y, w, h)))
+        except queue.Full:
+            pass
+
+    def fn_screen(self, now):
+        """While Fortnite is in front: look at the prompt 2.5x a second, and right after E is pressed / let go."""
+        chest = self.widgets_of("chests")
+        if not (chest and chest[0].auto and OCR_THREAD_STARTED and chest[0].wcfg.get("visible", True)):
+            return
+        if self.fn_checks and now >= self.fn_checks[0]:
+            self.fn_checks.pop(0)
+            if foreground_program() == FORTNITE_EXE:
+                self.fn_read_prompt("check")
+        elif now >= self.fn_scan_at:
+            self.fn_scan_at = now + 0.4
+            if FORTNITE_EXE in self.running and foreground_program() == FORTNITE_EXE and fn_ocr_requests.empty():
+                self.fn_read_prompt("scan")
+
+    # ---------- OBS
+    def obs_capture(self, now):
+        """Hand the current pictures of the widgets an OBS page is showing to the web server."""
+        items = []
+        for wid, w in self.widgets.items():
+            r = w.rect()
+            items.append({"id": wid, "label": w.label(), "kind": w.kind, "x": r.left, "y": r.top, "w": w.w, "h": w.h,
+                          "shown": bool(w.shown)})
+        with obs_lock:
+            obs_layout["screen"] = [user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)]
+            obs_layout["items"] = items
+            wanted = [wid for wid, t in obs_wanted.items() if now - t < 3.0]
+        for wid in wanted:
+            w = self.widgets.get(wid)
+            if not w or not w.shown:
+                continue
+            if w.argb:
+                fmt, data = FMT_PARGB, ctypes.string_at(w.canvas.bits, w.w * w.h * 4)
+            else:
+                dib = self.obs_dibs.get(wid)
+                if not dib or dib[0] != (w.w, w.h):
+                    if dib:
+                        gdi32.DeleteObject(dib[2])
+                        gdi32.DeleteDC(dib[1])
+                    info = BITMAPINFOHEADER(ctypes.sizeof(BITMAPINFOHEADER), w.w, -w.h, 1, 32, 0, 0, 0, 0, 0, 0)
+                    bits = ctypes.c_void_p()
+                    dc = gdi32.CreateCompatibleDC(w.screen_dc)
+                    bmp = gdi32.CreateDIBSection(w.screen_dc, ctypes.byref(info), 0, ctypes.byref(bits), None, 0)
+                    gdi32.SelectObject(dc, bmp)
+                    dib = self.obs_dibs[wid] = ((w.w, w.h), dc, bmp, bits)
+                gdi32.BitBlt(dib[1], 0, 0, w.w, w.h, w.buf_dc, 0, 0, SRCCOPY)
+                fmt, data = FMT_RGB, ctypes.string_at(dib[3], w.w * w.h * 4)
+            with obs_lock:
+                old = obs_frames.get(wid)
+                if not old or old[3] != data:
+                    obs_frames[wid] = (fmt, w.w, w.h, data, (old[4] + 1) if old else 1)
+
+    def obs_toggle(self, on=None):
+        global obs_enabled
+        on = (not obs_enabled) if on is None else bool(on)
+        if on and not web_start():
+            self.say(T("obs_fail").format(OBS_PORT))
+            on = False
+        obs_enabled = self.cfg["obs"] = on
+        save_settings(self.cfg)
+
     # ---------- games
     def session_seconds(self, now):
         return (self.session_paused_at or now) - self.session_start
@@ -5010,13 +6813,13 @@ class App:
             rl_wanted.set()
         else:
             rl_wanted.clear()
-        chest = self.widgets_of("chests")
-        if chest and chest[0].wcfg.get("visible", True) and FORTNITE_EXE in self.running:
+        fn_widgets = [w for w in self.widgets.values() if w.kind in ("chests", "fnmatch") and w.wcfg.get("visible", True)]
+        if fn_widgets and FORTNITE_EXE in self.running:
             fn_wanted.set()
         else:
             fn_wanted.clear()
         for w in self.widgets.values():
-            if w.kind in ("rocket", "dash", "chests"):
+            if w.kind in ("rocket", "dash", "chests", "fnmatch"):
                 w.refresh()
         state = ctypes.c_int(0)
         try:
@@ -5033,6 +6836,8 @@ class App:
                 self.fs_warned.add(exe)
                 if exe == "rocketleague.exe":
                     self.balloon(T("fs_title"), T("fs_text_rl"))
+                elif exe == FORTNITE_EXE:
+                    self.balloon(T("fs_title"), T("fs_text_fn"))
                 else:
                     name = KNOWN_GAMES.get(exe) or os.path.splitext(exe)[0]
                     self.balloon(T("fs_title"), T("fs_text").format(name))
@@ -5051,14 +6856,40 @@ class App:
         v = read_ini(os.path.join(rl_config_dir(), RL_VIDEO_INI), "SystemSettings")
         return v.get("Borderless", "").lower() == "true" or v.get("Fullscreen", "").lower() == "false"
 
+    def say(self, text, icon=0x30):
+        """Message for the user: shown in the main menu when it asked, otherwise as a Windows message box."""
+        if self.web_messages is not None:
+            self.web_messages.append(text)
+        else:
+            user32.MessageBoxW(None, text, APP_NAME, icon)
+
+    def fortnite_window_command(self):
+        """Fortnite: exclusive fullscreen <-> windowed fullscreen (only while the game is closed)."""
+        path = fn_settings_path()
+        if not os.path.exists(path):
+            self.say(T("fn_no_config"))
+            return
+        if FORTNITE_EXE in running_programs():
+            self.say(T("fn_close_first"))
+            return
+        mode = "0" if fn_windowed_on() else "1"
+        try:
+            write_ini(path, FN_SETTINGS_SECTION, {"FullscreenMode": mode, "LastConfirmedFullscreenMode": mode,
+                                                  "PreferredFullscreenMode": mode})
+        except OSError as e:
+            self.say(str(e))
+            return
+        if mode == "1":
+            self.say(T("fn_windowed_done"), 0x40)
+
     def games_command(self, cmd):
         """560 = Rocket League live data on/off, 561 = borderless / exclusive fullscreen."""
         folder = rl_config_dir()
         if not os.path.isdir(folder):
-            user32.MessageBoxW(None, T("rl_no_config"), APP_NAME, 0x30)
+            self.say(T("rl_no_config"))
             return
         if "rocketleague.exe" in running_programs():
-            user32.MessageBoxW(None, T("rl_close_first"), APP_NAME, 0x30)
+            self.say(T("rl_close_first"))
             return
         try:
             if cmd == 560:
@@ -5069,19 +6900,19 @@ class App:
                     changes = {"Port": 49123, **changes}
                 write_ini(path, RL_STATS_SECTION, changes)
                 if on:
-                    user32.MessageBoxW(None, T("rl_live_done"), APP_NAME, 0x40)
+                    self.say(T("rl_live_done"), 0x40)
             elif cmd == 561:
                 path = os.path.join(folder, RL_VIDEO_INI)
                 if not os.path.exists(path):
-                    user32.MessageBoxW(None, T("rl_no_config"), APP_NAME, 0x30)
+                    self.say(T("rl_no_config"))
                     return
                 on = not self.rl_borderless_on()
                 write_ini(path, "SystemSettings", {"Fullscreen": "False" if on else "True",
                                                    "Borderless": "True" if on else "False"})
                 if on:
-                    user32.MessageBoxW(None, T("rl_border_done"), APP_NAME, 0x40)
+                    self.say(T("rl_border_done"), 0x40)
         except OSError as e:
-            user32.MessageBoxW(None, str(e), APP_NAME, 0x30)
+            self.say(str(e))
 
     # ---------- colors shared by all widgets
     def glow_color(self, xfrac, now):
@@ -5123,7 +6954,9 @@ class App:
                 self.media_action(MEDIA_ACTIONS[wparam - 1000])
                 return 0
             if msg == WM_TRAY:
-                if lparam & 0xFFFF in (0x0202, 0x0205):
+                if lparam & 0xFFFF == 0x0202:                    # click: the main menu window
+                    open_main_menu()
+                elif lparam & 0xFFFF == 0x0205:                  # right-click: the quick menu
                     self.show_tray_menu()
                 return 0
             if msg == WM_TASKBARCREATED:
@@ -5144,8 +6977,17 @@ class App:
                     if pl:
                         pl.set_state(val)
                 elif kind == "fn":
+                    for w in self.widgets.values():
+                        if w.kind == "chests" and val[0] == "phase" and val[1] == "Warmup":
+                            w.match_started()
+                        elif w.kind == "fnmatch":
+                            w.on_fn(*val)
+                elif kind == "fn_ocr":
                     for w in self.widgets_of("chests"):
-                        w.match_started()
+                        w.ocr_result(*val)
+                elif kind == "web":
+                    action, data, reply = val
+                    reply.put(self.web_call(action, data))
                 elif kind == "rl":
                     for w in list(self.widgets.values()):
                         if w.kind in ("rocket",) + RL_STYLE_KINDS:
@@ -5176,6 +7018,10 @@ class App:
                 if now - self.last_save > 30:                    # keep today's stats safe
                     self.last_save = now
                     save_settings(self.cfg)
+        self.fn_screen(now)
+        if obs_enabled and now - self.obs_last >= 1 / 15:
+            self.obs_last = now
+            self.obs_capture(now)
 
     def on_input(self, kind, kid):
         if kind == "down" and self.chest_capture:                 # choosing the chest key
@@ -5184,9 +7030,19 @@ class App:
             elif kid not in (M("L"), M("R"), M("WU"), M("WD")) and kid not in MODIFIER_IDS:
                 self.chest_capture.set_key(kid)
             return
-        if kind == "down" and self.widgets_of("chests") and kid == self.widgets_of("chests")[0].key \
+        chest = self.widgets_of("chests")
+        if chest and kind in ("down", "up") and kid in (chest[0].key, chest[0].interact) \
                 and foreground_program() == FORTNITE_EXE:
-            self.widgets_of("chests")[0].add(1)
+            now = time.monotonic()
+            if kind == "down" and kid == chest[0].key:
+                chest[0].add(1)
+            elif kid == chest[0].interact and chest[0].auto and OCR_THREAD_STARTED:
+                if kind == "down":
+                    chest[0].pressed_interact(now)
+                    self.fn_read_prompt("press")
+                    self.fn_checks = [now + 1.6]
+                else:                                             # let go: look again while it opens
+                    self.fn_checks = [now + 0.3, now + 0.8, now + 1.5, now + 2.5]
         if kind == "down":
             if self.capturing and kid not in MODIFIER_IDS and kid[0] != "m":
                 self.finish_capture(kid)
@@ -5280,7 +7136,7 @@ class App:
     def show_tray_menu(self):
         global sound_enabled, mouse_sound_enabled
         cfg, add = self.cfg, user32.AppendMenuW
-        menu, snd, vol, fx, col, wmenu, look, games = (user32.CreatePopupMenu() for _ in range(8))
+        menu, snd, vol, fx, col, wmenu, look, games, obs = (user32.CreatePopupMenu() for _ in range(9))
         checked = lambda on: 0x8 if on else 0
 
         add(snd, checked(cfg["sound"]), 103, T("sound_on"))
@@ -5304,6 +7160,8 @@ class App:
         rate = self.rl_live_rate()
         add(games, checked(rate >= 10), 560, T("rl_live") + (T("rl_live_rate").format(rate) if 0 < rate < 10 else ""))
         add(games, checked(self.rl_borderless_on()), 561, T("rl_borderless"))
+        add(games, 0x800, 0, None)
+        add(games, checked(fn_windowed_on()), 563, T("fn_windowed"))
         for i, name in enumerate(EFFECTS):
             add(fx, checked(cfg["effect"] == name), 300 + i, T("fx_" + name))
         color_names = list(COLORS)
@@ -5348,6 +7206,9 @@ class App:
         for i, c in enumerate(corners):
             add(wmenu, 0, 660 + i, f"{T('reset_layout')}: {T(c)}")
 
+        add(menu, 0, 90, T("main_menu"))
+        user32.SetMenuDefaultItem(menu, 90, 0)
+        add(menu, 0x800, 0, None)
         add(menu, checked(self.editing), 101, T("move"))
         add(menu, checked(cfg["visible"]), 102, T("show"))
         add(menu, 0x10, wmenu, T("widgets"))
@@ -5358,6 +7219,10 @@ class App:
         add(menu, 0x10, look, T("style"))
         add(menu, 0x10, music, T("media"))
         add(menu, 0x10, games, T("games"))
+        add(obs, checked(obs_enabled), 570, T("obs_on"))
+        add(obs, 0 if obs_enabled else 0x1, 571, T("obs_copy"))
+        add(obs, 0 if obs_enabled else 0x1, 572, T("obs_open"))
+        add(menu, 0x10, obs, T("obs"))
         add(menu, 0x800, 0, None)
         if FROZEN:
             add(menu, checked(autostart_enabled()), 104, T("autostart"))
@@ -5365,7 +7230,9 @@ class App:
         add(menu, 0, 105, T("quit"))
         cmd = self.popup(menu)
 
-        if cmd == 101:
+        if cmd == 90:
+            open_main_menu()
+        elif cmd == 101:
             self.toggle_edit()
         elif cmd == 102:
             cfg["visible"] = not cfg["visible"]
@@ -5397,6 +7264,17 @@ class App:
         elif cmd in (560, 561):
             self.games_command(cmd)
             self.refresh_all()
+        elif cmd == 563:
+            self.fortnite_window_command()
+        elif cmd == 570:
+            self.obs_toggle()
+        elif cmd == 571:
+            url = f"http://127.0.0.1:{web_port}/all"
+            set_clipboard(url)
+            user32.MessageBoxW(None, T("obs_copied").format(url, user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)),
+                               APP_NAME, 0x40)
+        elif cmd == 572:
+            os.startfile(f"http://127.0.0.1:{web_port}/")
         elif 220 <= cmd < 220 + len(volumes):
             cfg["volume"] = volumes[cmd - 220]
             self.set_sound(cfg["sound_choice"])
@@ -5532,6 +7410,12 @@ class App:
         if self.cfg["sound_choice"] == "custom":
             self.set_sound(SOUNDS[0][0])
 
+    def theme_changed(self):
+        self.__dict__.pop("_themes", None)
+        for w in self.widgets.values():
+            w.build()
+        save_settings(self.cfg)
+
     def effect_changed(self):
         for w in self.widgets.values():
             if isinstance(w, KeysWidget):
@@ -5646,6 +7530,16 @@ def start(target, *args):
     return t
 
 
+def remove_old_files():
+    """Files older versions left behind that nothing uses any more (the Fortnite chest counter's log)."""
+    for name in ("fortnite_chests_log.txt", "fortnite_chests_log.txt.old"):                # test version leftovers
+        try:
+            os.remove(os.path.join(DATA_DIR, name))
+        except OSError:
+            pass
+    shutil.rmtree(os.path.join(DATA_DIR, "fortnite_prompts"), ignore_errors=True)
+
+
 def error_box(text):
     user32.MessageBoxW(None, text, APP_NAME, 0x10)
 
@@ -5655,7 +7549,7 @@ def show_help():
 
 
 def main():
-    global overlay_hwnd, sound_enabled, mouse_sound_enabled
+    global overlay_hwnd, sound_enabled, mouse_sound_enabled, obs_enabled, OCR_THREAD_STARTED
     mutex = kernel32.CreateMutexW(None, False, "KeyboardSound_SingleInstance")
     if ctypes.get_last_error() == 183:                   # ERROR_ALREADY_EXISTS
         user32.MessageBoxW(None, T("already"), APP_NAME, 0x40)
@@ -5683,7 +7577,16 @@ def main():
     start(input_loop, True)
     start(media_worker)
     start(rl_worker)
+    remove_old_files()
     start(fortnite_worker)
+    if OCR_OK:
+        try:
+            start(fn_ocr_worker)
+            OCR_THREAD_STARTED = True
+        except Exception:
+            pass
+    web_start()
+    obs_enabled = bool(cfg.get("obs"))
 
     signal.signal(signal.SIGINT, lambda *_: user32.PostQuitMessage(0))
     print("Keyboard Sound is running.  Ctrl+Alt+F11 = move widgets, Ctrl+Alt+F12 (or Ctrl+C here) = quit")

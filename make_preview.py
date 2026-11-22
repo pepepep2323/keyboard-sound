@@ -173,14 +173,31 @@ def main():
         bm.redraw()
         snapshot(bm, f"boost-{mode}.png")
 
-    chests = app.widgets["chests"]
-    st.data.update(fn_match=4, fn_today=11, fn_total=287, fn_best=9)
+    clock = app.widgets["clock"]
+    clock.redraw()
+    snapshot(clock, "clock.png")
+
     app.running = app.running | {ks.FORTNITE_EXE}
+    st.data.update(fnm_count=4, fnm_time=4 * 812, fnm_best=1102, drinks=3, fn_match=5, fn_today=17, fn_total=203,
+                   fn_best=9)
+    fm = app.widgets["fnmatch"]
+    fm.phase, fm.bus_at = "game", time.time() - 754
+    fm.redraw()
+    snapshot(fm, "fnmatch.png")
+    drink = app.widgets["drink"]
+    drink.left = 11 * 60
+    drink.redraw()
+    snapshot(drink, "drink.png")
+    chests = app.widgets["chests"]
     chests.redraw()
     snapshot(chests, "chests.png")
-    chests.opened_at = time.monotonic() - 0.3
-    chests.redraw()
-    snapshot(chests, "chests-open.png")
+    for theme in ("pastel", "neon"):                       # the same widget in two other themes
+        cfg["theme"] = theme
+        app.__dict__.pop("_themes", None)
+        app.widgets["stats"].redraw()
+        snapshot(app.widgets["stats"], f"theme-{theme}.png")
+    cfg["theme"] = "classic"
+    app.__dict__.pop("_themes", None)
 
     dash = app.widgets["dash"]
     app.gd_seconds = 754

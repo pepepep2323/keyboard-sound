@@ -7,7 +7,8 @@ if not exist .build-venv (
 )
 rem pyinstaller + Windows media control (music player / Spotify shortcuts)
 .build-venv\Scripts\python -m pip install --quiet pyinstaller winrt-runtime winrt-Windows.Media.Control ^
-    winrt-Windows.Storage.Streams winrt-Windows.Foundation || goto :error
+    winrt-Windows.Storage.Streams winrt-Windows.Foundation winrt-Windows.Media.Ocr ^
+    winrt-Windows.Graphics.Imaging winrt-Windows.Globalization || goto :error
 if not exist icon.ico python make_icon.py
 
 .build-venv\Scripts\pyinstaller --noconfirm --clean --onefile --windowed ^

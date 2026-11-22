@@ -41,7 +41,12 @@ If Windows says *"Windows protected your PC"*, click **More info → Run anyway*
 - 🔇 **Spotify ads muted automatically** (they can't be skipped, so they're silenced)
 - 🔉 **Click volume** 10 – 200 % (`Ctrl+Alt+PgUp / PgDn`), click sound on mouse buttons too (off by default)
 - 🔥 **Rocket League boost meter** in your team color, same look / font / opacity as the score counter
-- 🧰 **Fortnite chest counter**: this match, today, total, record (press your chest button; resets each match)
+- ⚙️ **Main menu**: one window with all settings (click the tray icon)
+- 🖌️ **Themes**: 7 looks for all widgets (classic, pastel, black RGB, neon, glass, no background, custom colors),
+  any font, and every widget can have its own theme and font
+- 🪂 **Fortnite match time** (from the game's log) and 🧰 **chest counter** (reads the SEARCH prompt on screen)
+- 💧 **Drink reminder** every 15 – 90 minutes
+- ⏰ **Clock** with a timer, 🏷️ **team names** on the score counter, 📡 **OBS** browser source
 - 📍 **Back to the original place** for one widget or all of them
 - 🖱️ Mouse buttons, wheel and side buttons
 - ⌨️ Key labels follow your keyboard layout (e.g. Czech ě š č ř ž)
@@ -54,7 +59,8 @@ Full help: **[NAVOD.txt](NAVOD.txt)** (also inside the ZIP and in the app: menu 
 
 | What | How |
 |---|---|
-| Open the menu | Right-click the keyboard icon near the clock (bottom right) |
+| Main menu (all settings) | Click the keyboard icon near the clock (bottom right) |
+| Quick menu | Right-click the keyboard icon near the clock |
 | Move / resize widgets | `Ctrl+Alt+F11`, drag each widget, scroll over it to resize, right-click it for options, `Ctrl+Alt+F11` again to finish |
 | Turn widgets on / off, add text or image | Menu → Widgets |
 | Change sound / effect / color / keyboard look | Menu → Sound / Effect / Color / Keyboard look |

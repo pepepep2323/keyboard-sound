@@ -13,7 +13,12 @@ SPUŠTĚNÍ
      (Aplikace jen není placeně podepsaná, proto ji Windows nezná.)
   3. Vpravo dole u hodin se objeví ikona klávesnice. Hotovo.
 
-MENU
+HLAVNÍ MENU (NASTAVENÍ VŠEHO)
+  Klikni na ikonu klávesnice vpravo dole u hodin. Otevře se okno se vším:
+  zvuk, vzhled, widgety, Rocket League, hudba, hry, OBS a systém.
+  Změny platí hned.
+
+RYCHLÉ MENU
   Pravý klik na ikonu klávesnice vpravo dole u hodin.
   (Když ji nevidíš, klikni na šipku ^ vedle hodin.)
   V menu najdeš:
@@ -98,12 +103,28 @@ BOOST ROCKET LEAGUE
   Vzhled, písmo a průhlednost má stejné jako skóre - změníš jedno,
   změní se obojí.
 
-TRUHLY FORTNITE
-  Fortnite o truhlách žádná data neposílá, proto při otevření truhly
-  zmáčkneš svoje tlačítko (výchozí: boční tlačítko myši 5). Hře se nebere,
-  jen se počítá, a jen když máš Fortnite v popředí.
-  Na začátku zápasu se počítadlo samo vynuluje. Ukazuje zápas, dnes,
-  celkem a rekord. Pravý klik: +1 / -1, změnit klávesu, vynulovat.
+TÉMATA A PÍSMO
+  Hlavní menu > Téma: 7 vzhledů pro všechny widgety (klasické, pastelové,
+  černé RGB, neon, sklo, bez pozadí, vlastní) a písmo pro všechno.
+  Vlastní téma: barva pozadí a průhlednost, okraj, text, popisky, čísla,
+  zaoblení. Každý widget může mít i vlastní téma a písmo
+  (Hlavní menu > Widgety > Možnosti).
+
+ČAS KOLA (FORTNITE)
+  Čte log hry: ostrov, autobus, zápas, konec zápasu. Velký čas běží od
+  autobusu, dole jsou dnešní zápasy, průměr a nejdelší. Ukáže se jen
+  když běží Fortnite.
+
+TRUHLY (FORTNITE)
+  Fortnite o truhlách nic neposílá, proto aplikace sleduje nápis SEARCH
+  u zaměřovače (jen čte obrazovku, do hry nesahá). Zmáčkneš E u truhly
+  a nápis zmizí = truhla otevřená, +1. Bedny s náboji mají stejný nápis,
+  počítají se taky. Ruční +1: boční tlačítko myši 5 (jde změnit).
+  Nový zápas počítadlo vynuluje, drží dnes, celkem a rekord.
+
+PŘIPOMÍNKA PITÍ
+  Sklenička se vyprazdňuje, když je prázdná, připomene ti vodu.
+  Interval 15 - 90 minut, jde i jen když hraješ hru.
 
 GEOMETRY DASH
   Kostička skáče s tebou a počítá skoky (klik, mezerník, šipka
@@ -166,7 +187,12 @@ START
      (The app just isn't code-signed, so Windows doesn't know it yet.)
   3. A keyboard icon appears near the clock (bottom right). Done.
 
-MENU
+MAIN MENU (ALL SETTINGS)
+  Click the keyboard icon near the clock. A window opens with everything:
+  sound, look, widgets, Rocket League, music, games, OBS and system.
+  Changes apply at once.
+
+QUICK MENU
   Right-click the keyboard icon near the clock.
   (If you can't see it, click the ^ arrow next to the clock.)
   The menu has:
@@ -251,12 +277,29 @@ ROCKET LEAGUE BOOST
   It shares the look, font and opacity with the score - change one,
   both change.
 
-FORTNITE CHESTS
-  Fortnite sends no data about chests, so press your chest button when you
-  open one (default: mouse side button 5). It isn't taken from the game, only
-  counted, and only while Fortnite is in front.
-  A new match resets it by itself. Shows this match, today, total and your
-  record. Right-click: +1 / -1, change the key, reset.
+THEMES AND FONT
+  Main menu > Theme: 7 looks for all widgets (classic, pastel, black RGB,
+  neon, glass, no background, custom) and a font for everything.
+  Custom theme: background color and opacity, border, text, labels,
+  numbers, roundness. Every widget can have its own theme and font
+  (Main menu > Widgets > Options).
+
+MATCH TIME (FORTNITE)
+  Reads the game's log: island, battle bus, match, match over. The big
+  time runs from the bus; below are today's matches, average and longest.
+  Only shows while Fortnite runs.
+
+CHESTS (FORTNITE)
+  Fortnite sends nothing about chests, so the app watches the SEARCH
+  prompt by the crosshair (it only reads the screen, nothing touches the
+  game). E on a chest and the prompt goes away = chest opened, +1. Ammo
+  boxes have the same prompt, so they count too. Manual +1: mouse side
+  button 5 (can be changed). A new match resets it; keeps today, total
+  and record.
+
+DRINK REMINDER
+  The glass empties; when it's empty it reminds you to drink.
+  Every 15 - 90 minutes, also only while you play a game.
 
 GEOMETRY DASH
   A little cube jumps with you and counts your jumps (click, Space,
